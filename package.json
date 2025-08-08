@@ -1,0 +1,11 @@
+{
+  "name": "my-tth-site",
+  "version": "1.0.0",
+  "scripts": {
+    "start": "node server/index.js",
+    "heroku-postbuild": "cd client && npm install && npm run build"
+  },
+  "engines": {
+    "node": "24.5.0"
+  }
+}
