@@ -88,7 +88,7 @@ a{color:inherit;text-decoration:none}
 .terms{color:var(--muted);font-size:12px}
 .card-actions{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:10px}
 .chip{background:var(--chip);border-radius:8px;padding:6px 10px;font-size:12px;color:#111;border:1px solid var(--line)}
-.compare-bar{position:sticky;bottom:0;z-index:30;background:rgba(255,255,255,.95);backdrop-filter:blur(6px);border-top:1px solid var(--line);padding:14px 18px;display:flex;align-items:center;justify-content:center;gap:16px}
+.compare-bar{position:sticky;bottom:0;z-index:30;background:#fafafa;backdrop-filter:blur(6px);border-top:1px solid var(--line);padding:14px 18px;display:flex;align-items:center;justify-content:center;gap:16px}
 .compare-bar .btn[disabled]{opacity:.5;cursor:not-allowed}
 .detail{background:#fff;border-radius:22px;border:1px solid var(--line);box-shadow:var(--shadow-1);padding:28px}
 .detail h3{font-size:clamp(22px,2.4vw,32px);margin:0 0 8px}
