@@ -27,58 +27,46 @@ export default function AvailableOffers() {
   const [promos, setPromos] = useState<Promotion[]>([]);
   const [lastResponse, setLastResponse] = useState<any>(null);
 
-  const fetchPromotions = async () => {
-    setLoading(true);
-    setError(null);
-    setPromos([]);
-    setLastResponse(null);
+const fetchPromotions = async () => {
+  setLoading(true);
+  setError(null);
+  setPromos([]);
+  setLastResponse(null);
 
-    try {
-      const url = `${INSTANCE_URL}/services/data/v${API_VERSION}/connect/loyalty/programs/${encodeURIComponent(PROGRAM_NAME)}/program-processes/${encodeURIComponent(PROCESS_NAME)}`;
-      const res = await fetch(url, {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${ACCESS_TOKEN}`,
-          "Content-Type": "application/json",
-          Accept: "application/json",
-        },
-        body: JSON.stringify({ processParameters: [{ MemberId: memberId }] }),
-      });
+  try {
+    // Fetch the Salesforce token from the backend
+    const tokenRes = await fetch("/api/auth/getToken"); // Call the backend for the token
+    const tokenData = await tokenRes.json();
+    const accessToken = tokenData.access_token;
 
-      const data = await res.json();
-      setLastResponse(data);
-
-      if (!res.ok) {
-        const msg = data?.[0]?.message || data?.message || `HTTP ${res.status}`;
-        setError(msg);
-        return;
-      }
-
-    const results =
-        data?.outputParameters?.outputParameters?.results ??
-        data?.outputParameters?.results ??
-        data?.results ??
-        [];
-
-      const normalized = results.map((it: any, idx: number) => ({
-        id: it?.promotionId ?? String(idx),
-        name: it?.promotionName ?? "Promotion",
-        description: it?.description,
-        imageUrl: it?.promotionImageUrl,
-        startDate: it?.startDate,
-        endDate: it?.endDate,
-        eligibility: it?.memberEligibilityCategory,
-        enrollmentRequired: it?.promotionEnrollmentRqr,
-        _raw: it,
-      }));
-
-      setPromos(normalized);
-    } catch (e: any) {
-      setError(e?.message ?? "Request failed");
-    } finally {
-      setLoading(false);
+    if (!accessToken) {
+      throw new Error("Failed to fetch access token");
     }
-  };
+
+    // Now use the token to fetch available promotions
+    const res = await fetch("/api/loyalty/getPromotions", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ memberId, program: "Cars and Stays by Delta" }),
+    });
+
+    const data = await res.json();
+    setLastResponse(data);
+
+    if (!res.ok) {
+      setError(data?.message || `HTTP ${res.status}`);
+      return;
+    }
+
+    setPromos(data);
+  } catch (e: any) {
+    setError(e?.message ?? "Request failed");
+  } finally {
+    setLoading(false);
+  }
+};
 
   return (
     <section className="max-w-5xl mx-auto px-4 py-10">
