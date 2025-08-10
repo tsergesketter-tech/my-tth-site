@@ -61,20 +61,23 @@ a{color:inherit;text-decoration:none}
   display: grid;
   place-items: center;
 }
-.card-media {
-  position: relative;
-  aspect-ratio: 16 / 9;
-  background: transparent;     /* remove background */
-  display: grid;
-  place-items: center;
+.card-media img {
+  width: 62%;       /* was ~88% */
+  max-width: 320px; /* optional hard cap */
+  height: auto;
+  object-fit: contain;
 }
+
 .card { 
   /* image is 16:9, so height = width * 9/16; 40% of that = width * 9/16 * 0.4 */
   --overlap: calc((100% * 9 / 16) * 0.4);
   overflow: visible;           /* allow the body to slide up under the image */
 }
+@media (min-width: 1024px) {
+  .card-media img { width: 55%; max-width: 360px; }
+}
 @media (max-width: 480px) {
-  .card { --overlap: calc((100% * 9 / 16) * 0.3); } /* 30% on mobile */
+  .card-media img { width: 70%; max-width: 260px; }
 }
 .ribbon{position:absolute;top:12px;left:12px;background:var(--accent);color:#fff;font-weight:800;font-size:12px;padding:6px 10px;border-radius:8px;box-shadow:0 4px 14px rgba(0,0,0,.25);letter-spacing:.4px}
 .card-body{padding:18px;display:flex;flex-direction:column;gap:8px}
