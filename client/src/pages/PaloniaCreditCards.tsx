@@ -127,7 +127,7 @@ footer{margin:64px 0 80px;color:var(--muted);font-size:13px}
             <article className="card">
               <div className="card-media">
                 <span className="ribbon">Limited-Time Offer</span>
-                <img src="https://images.unsplash.com/photo-1585386959984-a4155223168f?q=80&w=800&auto=format&fit=crop" alt="Palonia Boundless card art" />
+                <img src="https://www.marriott.com/content/dam/marriott-digital/global/partner-logo/en_us/logo/internal/assets/bonvoy-cobrand-boundles-dsktptab-33510.png" alt="Palonia Boundless card art" />
               </div>
               <div className="card-body">
                 <div className="card-kicker">Palonia® Visa Signature®</div>
@@ -146,7 +146,7 @@ footer{margin:64px 0 80px;color:var(--muted);font-size:13px}
             {/* Card 2 */}
             <article className="card">
               <div className="card-media">
-                <img src="https://images.unsplash.com/photo-1507679799987-c73779587ccf?q=80&w=800&auto=format&fit=crop" alt="Palonia Bold card art" />
+                <img src="https://www.marriott.com/content/dam/marriott-digital/global/partner-logo/en_us/logo/internal/assets/bonvoy-cobrand-bold-desktoptab-29647.png" alt="Palonia Bold card art" />
               </div>
               <div className="card-body">
                 <div className="card-kicker">Palonia® Visa</div>
@@ -166,7 +166,7 @@ footer{margin:64px 0 80px;color:var(--muted);font-size:13px}
             <article className="card">
               <div className="card-media">
                 <span className="ribbon">Limited-Time Offer</span>
-                <img src="https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?q=80&w=800&auto=format&fit=crop" alt="Palonia Bevy card art" />
+                <img src="https://www.marriott.com/content/dam/marriott-digital/global/partner-logo/en_us/logo/internal/assets/bonvoy-cobrand-bevy-desktoptab-16776.png" alt="Palonia Bevy card art" />
               </div>
               <div className="card-body">
                 <div className="card-kicker">Palonia® American Express®</div>
@@ -186,7 +186,7 @@ footer{margin:64px 0 80px;color:var(--muted);font-size:13px}
             <article className="card">
               <div className="card-media">
                 <span className="ribbon">Limited-Time Offer</span>
-                <img src="https://images.unsplash.com/photo-1541643600914-78b084683601?q=80&w=800&auto=format&fit=crop" alt="Palonia Brilliant card art" />
+                <img src="https://www.marriott.com/content/dam/marriott-digital/global/partner-logo/en_us/logo/internal/assets/bonvoy-cobrand-briliant-dsktptab-33555.png" alt="Palonia Brilliant card art" />
               </div>
               <div className="card-body">
                 <div className="card-kicker">Palonia® American Express®</div>
@@ -209,7 +209,7 @@ footer{margin:64px 0 80px;color:var(--muted);font-size:13px}
           <div className="grid" aria-live="polite">
             <article className="card">
               <div className="card-media">
-                <img src="https://images.unsplash.com/photo-1483478550801-ceba5fe50e8e?q=80&w=800&auto=format&fit=crop" alt="Palonia Business card art" />
+                <img src="https://www.marriott.com/content/dam/marriott-digital/digital-merchandising/global/en_us/cobrand-cards/assets/pdt-USBU-LTO-Flag-190x152-143502894369030.png" alt="Palonia Business card art" />
               </div>
               <div className="card-body">
                 <div className="card-kicker">Palonia® Business</div>
