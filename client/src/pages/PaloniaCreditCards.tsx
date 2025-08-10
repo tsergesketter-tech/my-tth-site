@@ -102,7 +102,7 @@ footer{margin:64px 0 80px;color:var(--muted);font-size:13px}
           </p>
           <div className="header-cta">
             <a className="btn primary" href="#cards">See Cards</a>
-            <a className="btn" href="#detail">How Points Work</a>
+            <a className="btn" href="#detail" style={{ color: "blue" }}>How Points Work</a>
           </div>
         </div>
       </section>
