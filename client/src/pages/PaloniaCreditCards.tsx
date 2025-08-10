@@ -54,8 +54,28 @@ a{color:inherit;text-decoration:none}
 @media (min-width:720px){.grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media (min-width:1024px){.grid{grid-template-columns:repeat(4,minmax(0,1fr))}}
 .card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius-xl);overflow:hidden;box-shadow:var(--shadow-1);display:flex;flex-direction:column}
-.card-media{aspect-ratio:16/9;background:#eef2ff;display:grid;place-items:center;position:relative}
-.card-media img{width:88%;height:auto;object-fit:contain}
+.card-media{
+  position: relative;          /* make it a positioning context */
+  aspect-ratio: 16/9;
+  background: transparent;     /* was #eef2ff; now transparent */
+  display: grid;
+  place-items: center;
+}
+.card-media {
+  position: relative;
+  aspect-ratio: 16 / 9;
+  background: transparent;     /* remove background */
+  display: grid;
+  place-items: center;
+}
+.card { 
+  /* image is 16:9, so height = width * 9/16; 40% of that = width * 9/16 * 0.4 */
+  --overlap: calc((100% * 9 / 16) * 0.4);
+  overflow: visible;           /* allow the body to slide up under the image */
+}
+@media (max-width: 480px) {
+  .card { --overlap: calc((100% * 9 / 16) * 0.3); } /* 30% on mobile */
+}
 .ribbon{position:absolute;top:12px;left:12px;background:var(--accent);color:#fff;font-weight:800;font-size:12px;padding:6px 10px;border-radius:8px;box-shadow:0 4px 14px rgba(0,0,0,.25);letter-spacing:.4px}
 .card-body{padding:18px;display:flex;flex-direction:column;gap:8px}
 .card-title{font-weight:800;font-size:18px;line-height:1.25}
