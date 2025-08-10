@@ -6,6 +6,8 @@ import Footer from './components/Footer';
 import Home from './pages/Home';
 import Promotions from './pages/Promotions';
 import MemberPage from './pages/Member';
+import PaloniaCreditCards from './pages/PaloniaCreditCards';
+
 
 const App = () => {
   return (
@@ -15,7 +17,7 @@ const App = () => {
         <Route path="/" element={<Home />} />
         <Route path="/promotions" element={<Promotions />} />
         <Route path="/member" element={<MemberPage />} />
-
+        <Route path="/credit-cards" element={<PaloniaCreditCards />} />
       </Routes>
       <Footer />
     </Router>
