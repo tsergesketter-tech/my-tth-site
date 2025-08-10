@@ -3,9 +3,13 @@ import React from "react";
 export default function Header() {
   return (
     <header className="w-full bg-white text-black shadow-md px-6 py-4 flex justify-between items-center">
-      {/* Left: Logo */}
-      <div className="font-bold text-xl tracking-wide">
-        MyTravelSite
+      {/* Left: Logo as Image */}
+      <div className="flex items-center">
+        <img
+          src="/images/logo.jpg"  // <-- Replace with your actual path
+          alt="Logo"
+          className="h-16 w-auto"
+        />
       </div>
 
       {/* Center: Nav Links */}
