@@ -1,13 +1,6 @@
 "use client";
 import React, { useState } from "react";
 
-// --- Config ---
-const INSTANCE_URL = "https://trailsignup-87374d74afe7a0.my.salesforce.com";
-const API_VERSION = "64.0";
-const PROGRAM_NAME = "Cars and Stays by Delta";
-const PROCESS_NAME = "Get Member Promotions";
-const ACCESS_TOKEN = "00DKY00000DQufe!AR4AQDMDGbLOj61wddPSrpoem7meYlLIPp9hE6hoaczt5kiMN9qhfG3lCz7FfOVdF7ZyU1TWuP3YDlRyWYrTF10hkrqQ8lsH"; // ⚠️ Hardcoded for demo
-
 type Promotion = {
   id?: string;
   name?: string;
@@ -20,6 +13,8 @@ type Promotion = {
   _raw?: any;
 };
 
+const PROGRAM_NAME = "Cars and Stays by Delta"; // optional: make this an input if you want
+
 export default function AvailableOffers() {
   const [memberId, setMemberId] = useState("0lMKY000000LWgz2AG");
   const [loading, setLoading] = useState(false);
@@ -27,46 +22,47 @@ export default function AvailableOffers() {
   const [promos, setPromos] = useState<Promotion[]>([]);
   const [lastResponse, setLastResponse] = useState<any>(null);
 
-const fetchPromotions = async () => {
-  setLoading(true);
-  setError(null);
-  setPromos([]);
-  setLastResponse(null);
+  const fetchPromotions = async () => {
+    setLoading(true);
+    setError(null);
+    setPromos([]);
+    setLastResponse(null);
 
-  try {
-    // Fetch the Salesforce token from the backend
-    const tokenRes = await fetch("/api/auth/getToken"); // Call the backend for the token
-    const tokenData = await tokenRes.json();
-    const accessToken = tokenData.access_token;
+    try {
+      // Single server call; server handles token + SF call + normalization
+      const res = await fetch("/api/loyalty/promotions", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ memberId, program: PROGRAM_NAME }),
+      });
 
-    if (!accessToken) {
-      throw new Error("Failed to fetch access token");
+      const data = await res.json();
+      setLastResponse(data);
+
+      if (!res.ok) {
+        const msg =
+          data?.message ||
+          data?.[0]?.message ||
+          `HTTP ${res.status}`;
+        setError(msg);
+        return;
+      }
+
+      // Support either { results: Promotion[] } or Promotion[]
+      const results: Promotion[] = Array.isArray(data)
+        ? data
+        : Array.isArray(data?.results)
+        ? data.results
+        : [];
+
+      setPromos(results);
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : String(e);
+      setError(msg || "Request failed");
+    } finally {
+      setLoading(false);
     }
-
-    // Now use the token to fetch available promotions
-    const res = await fetch("/api/loyalty/getPromotions", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({ memberId, program: "Cars and Stays by Delta" }),
-    });
-
-    const data = await res.json();
-    setLastResponse(data);
-
-    if (!res.ok) {
-      setError(data?.message || `HTTP ${res.status}`);
-      return;
-    }
-
-    setPromos(data);
-  } catch (e: any) {
-    setError(e?.message ?? "Request failed");
-  } finally {
-    setLoading(false);
-  }
-};
+  };
 
   return (
     <section className="max-w-5xl mx-auto px-4 py-10">
@@ -124,4 +120,5 @@ const fetchPromotions = async () => {
   );
 }
 
-export{};
+// If your project setup needs it:
+export {};

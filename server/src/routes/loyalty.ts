@@ -1,58 +1,51 @@
+// routes/loyalty.ts
 import { Router } from 'express';
-import { getClientCredentialsToken } from '../salesforce/auth';
+import { sfFetch } from '../salesforce/sfFetch';
 
 const router = Router();
 
-// Route for fetching member details based on membership number
+// Existing member lookup
 router.get('/member/:membershipNumber', async (req, res) => {
   try {
     const { membershipNumber } = req.params;
     const program = (req.query.program as string) || 'Cars and Stays by Delta';
+    const path =
+      `/services/data/v64.0/loyalty-programs/${encodeURIComponent(program)}` +
+      `/members?membershipNumber=${encodeURIComponent(membershipNumber)}`;
 
-    const { access_token, instance_url } = await getClientCredentialsToken();
-    const url = `${instance_url}/services/data/v64.0/loyalty-programs/${encodeURIComponent(
-      program
-    )}/members?membershipNumber=${encodeURIComponent(membershipNumber)}`;
-
-    const sf = await fetch(url, { headers: { Authorization: `Bearer ${access_token}` } });
+    const sf = await sfFetch(path, { method: 'GET' });
     if (!sf.ok) return res.status(sf.status).send(await sf.text());
-
     res.json(await sf.json());
-  } catch (e: any) {
-    res.status(500).json({ message: e?.message || 'Server error' });
+  } catch (e: unknown) {
+    const msg = e instanceof Error ? e.message : String(e);
+    res.status(500).json({ message: msg });
   }
 });
 
-// Route for fetching available promotions based on member ID
-router.post('/getPromotions', async (req, res) => {
+// New: promotions via Program Process "Get Member Promotions"
+router.post('/promotions', async (req, res) => {
   try {
-    const { memberId, program } = req.body;  // Expecting memberId and program in the body
+    const { memberId, program = 'Cars and Stays by Delta', processName = 'Get Member Promotions' } = req.body ?? {};
+    if (!memberId) return res.status(400).json({ message: 'memberId is required' });
 
-    // Get Salesforce access token
-    const { access_token, instance_url } = await getClientCredentialsToken();
-    
-    // Construct the URL for fetching promotions
-    const url = `${instance_url}/services/data/v64.0/loyalty-programs/${encodeURIComponent(program)}/program-processes/Get%20Member%20Promotions`;
+    const path =
+      `/services/data/v64.0/connect/loyalty/programs/${encodeURIComponent(program)}` +
+      `/program-processes/${encodeURIComponent(processName)}`;
 
-    const body = {
-      processParameters: [{ MemberId: memberId }],
-    };
-
-    const sf = await fetch(url, {
+    const sf = await sfFetch(path, {
       method: 'POST',
-      headers: {
-        Authorization: `Bearer ${access_token}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(body),
+      body: JSON.stringify({ processParameters: [{ MemberId: memberId }] })
     });
 
-    if (!sf.ok) return res.status(sf.status).send(await sf.text());
-
     const data = await sf.json();
+    if (!sf.ok) {
+      // Salesforce sometimes returns an array of errors
+      const msg = data?.[0]?.message || data?.message || `HTTP ${sf.status}`;
+      return res.status(sf.status).json({ message: msg, raw: data });
+    }
 
-    // Handle the response structure and normalize the data for the frontend
     const results =
+      data?.outputParameters?.outputParameters?.results ??
       data?.outputParameters?.results ??
       data?.results ??
       [];
@@ -66,12 +59,13 @@ router.post('/getPromotions', async (req, res) => {
       endDate: it?.endDate,
       eligibility: it?.memberEligibilityCategory,
       enrollmentRequired: it?.promotionEnrollmentRqr,
-      _raw: it,
+      _raw: it
     }));
 
-    res.json(normalized);
-  } catch (e: any) {
-    res.status(500).json({ message: e?.message || 'Server error' });
+    res.json({ results: normalized, raw: data });
+  } catch (e: unknown) {
+    const msg = e instanceof Error ? e.message : String(e);
+    res.status(500).json({ message: msg });
   }
 });
 
