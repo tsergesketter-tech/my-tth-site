@@ -27,11 +27,11 @@ type ApiResponse = {
 
 export default function TransactionHistory() {
   // Defaults from your example
-  const [membershipNumber, setMembershipNumber] = useState("doc_member1");
+  const [membershipNumber, setMembershipNumber] = useState("DL12345");
   const [journalType, setJournalType] = useState<string>("Accrual");
   const [journalSubType, setJournalSubType] = useState<string>("Social");
-  const [start, setStart] = useState("2022-01-27");
-  const [end, setEnd] = useState("2022-11-27");
+  const [start, setStart] = useState("2024-12-31");
+  const [end, setEnd] = useState("2025-12-31");
 
   const [page, setPage] = useState(1);
   const [data, setData] = useState<ApiResponse | null>(null);
@@ -50,7 +50,7 @@ export default function TransactionHistory() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          program: "NTO",
+          program: "Cars and Stays by Delta",
           page: p,
           membershipNumber,
           journalType: journalType || undefined,
