@@ -55,7 +55,7 @@ const Footer: React.FC = () => {
 
       <div className="max-w-screen-xl mx-auto px-6 py-6 grid md:grid-cols-2 items-center justify-between border-t border-neutral-800">
         <div className="mb-4 md:mb-0">
-          <p className="text-xs text-neutral-400">&copy; 2025 Palonia Inc. All rights reserved.</p>
+          <p className="text-xs text-neutral-400">&copy; 2025 Palonia Inc. All rights reserved. This is a Salesforce demo site. Please do not book or reveal personal information. Thank you!</p>
         </div>
         <div className="flex space-x-4 justify-end">
           <a href="#" className="hover:opacity-75">
