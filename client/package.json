@@ -9,8 +9,6 @@
     "@testing-library/user-event": "^13.5.0",
     "@types/jest": "^27.5.2",
     "@types/node": "^16.18.126",
-    "@types/react": "^19.1.9",
-    "@types/react-dom": "^19.1.7",
     "react": "^19.1.1",
     "react-dom": "^19.1.1",
     "react-router-dom": "^7.8.0",
@@ -22,9 +20,13 @@
     "start": "react-scripts start",
     "build": "react-scripts build",
     "test": "react-scripts test",
-    "eject": "react-scripts eject"
+    "eject": "react-scripts eject",
+    "build:client": "npm --prefix client run build",
+    "build:server": "npm --prefix server run build",
+    "start:server": "node server/dist/index.js",
+    "reload": "npm run build:client && npm run build:server && npm run start:server"
   },
-  "proxy": "http://localhost:3000",
+  "proxy": "http://localhost:3001",
   "eslintConfig": {
     "extends": [
       "react-app",
@@ -44,6 +46,8 @@
     ]
   },
   "devDependencies": {
+    "@types/react": "^19.1.10",
+    "@types/react-dom": "^19.1.7",
     "autoprefixer": "^10.4.21",
     "postcss": "^8.5.6",
     "tailwindcss": "3.4.3"
