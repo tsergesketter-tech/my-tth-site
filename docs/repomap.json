@@ -1,0 +1,443 @@
+{
+  "root": "my-tth-site",
+  "frameworks": [
+    "express"
+  ],
+  "generatedAt": "2025-08-16T18:34:44.340Z",
+  "depth": 6,
+  "tree": {
+    "name": "my-tth-site",
+    "path": ".",
+    "type": "dir",
+    "role": "unknown",
+    "children": [
+      {
+        "name": ".gitignore",
+        "path": ".gitignore",
+        "type": "file"
+      },
+      {
+        "name": "Procfile",
+        "path": "Procfile",
+        "type": "file"
+      },
+      {
+        "name": "README.md",
+        "path": "README.md",
+        "type": "file"
+      },
+      {
+        "name": "client",
+        "path": "client",
+        "type": "dir",
+        "role": "frontend",
+        "children": [
+          {
+            "name": ".gitignore",
+            "path": "client/.gitignore",
+            "type": "file"
+          },
+          {
+            "name": "README.md",
+            "path": "client/README.md",
+            "type": "file"
+          },
+          {
+            "name": "package-lock.json",
+            "path": "client/package-lock.json",
+            "type": "file"
+          },
+          {
+            "name": "package.json",
+            "path": "client/package.json",
+            "type": "file"
+          },
+          {
+            "name": "postcss.config.js",
+            "path": "client/postcss.config.js",
+            "type": "file"
+          },
+          {
+            "name": "public",
+            "path": "client/public",
+            "type": "dir",
+            "role": "unknown",
+            "children": [
+              {
+                "name": "amex-card.png",
+                "path": "client/public/amex-card.png",
+                "type": "file"
+              },
+              {
+                "name": "favicon.ico",
+                "path": "client/public/favicon.ico",
+                "type": "file"
+              },
+              {
+                "name": "images",
+                "path": "client/public/images",
+                "type": "dir",
+                "role": "unknown",
+                "children": [
+                  {
+                    "name": "anaheim.jpg",
+                    "path": "client/public/images/anaheim.jpg",
+                    "type": "file"
+                  },
+                  {
+                    "name": "dc.jpg",
+                    "path": "client/public/images/dc.jpg",
+                    "type": "file"
+                  },
+                  {
+                    "name": "houston.jpg",
+                    "path": "client/public/images/houston.jpg",
+                    "type": "file"
+                  },
+                  {
+                    "name": "logo.jpg",
+                    "path": "client/public/images/logo.jpg",
+                    "type": "file"
+                  },
+                  {
+                    "name": "miami.jpg",
+                    "path": "client/public/images/miami.jpg",
+                    "type": "file"
+                  },
+                  {
+                    "name": "santorini.jpg",
+                    "path": "client/public/images/santorini.jpg",
+                    "type": "file"
+                  },
+                  {
+                    "name": "seattle.jpg",
+                    "path": "client/public/images/seattle.jpg",
+                    "type": "file"
+                  }
+                ]
+              },
+              {
+                "name": "index.html",
+                "path": "client/public/index.html",
+                "type": "file"
+              },
+              {
+                "name": "logo192.png",
+                "path": "client/public/logo192.png",
+                "type": "file"
+              },
+              {
+                "name": "logo512.png",
+                "path": "client/public/logo512.png",
+                "type": "file"
+              },
+              {
+                "name": "manifest.json",
+                "path": "client/public/manifest.json",
+                "type": "file"
+              },
+              {
+                "name": "robots.txt",
+                "path": "client/public/robots.txt",
+                "type": "file"
+              },
+              {
+                "name": "seattle.jpg",
+                "path": "client/public/seattle.jpg",
+                "type": "file"
+              }
+            ]
+          },
+          {
+            "name": "src",
+            "path": "client/src",
+            "type": "dir",
+            "role": "unknown",
+            "children": [
+              {
+                "name": "App.css",
+                "path": "client/src/App.css",
+                "type": "file"
+              },
+              {
+                "name": "App.test.tsx",
+                "path": "client/src/App.test.tsx",
+                "type": "file"
+              },
+              {
+                "name": "App.tsx",
+                "path": "client/src/App.tsx",
+                "type": "file"
+              },
+              {
+                "name": "components",
+                "path": "client/src/components",
+                "type": "dir",
+                "role": "unknown",
+                "children": [
+                  {
+                    "name": "Destinations.tsx",
+                    "path": "client/src/components/Destinations.tsx",
+                    "type": "file"
+                  },
+                  {
+                    "name": "Footer.tsx",
+                    "path": "client/src/components/Footer.tsx",
+                    "type": "file"
+                  },
+                  {
+                    "name": "Header.tsx",
+                    "path": "client/src/components/Header.tsx",
+                    "type": "file"
+                  },
+                  {
+                    "name": "Hero.tsx",
+                    "path": "client/src/components/Hero.tsx",
+                    "type": "file"
+                  },
+                  {
+                    "name": "MemberProfile.tsx",
+                    "path": "client/src/components/MemberProfile.tsx",
+                    "type": "file"
+                  },
+                  {
+                    "name": "MemberProfileCard.tsx",
+                    "path": "client/src/components/MemberProfileCard.tsx",
+                    "type": "file"
+                  },
+                  {
+                    "name": "SearchBar.tsx",
+                    "path": "client/src/components/SearchBar.tsx",
+                    "type": "file"
+                  },
+                  {
+                    "name": "TailwindTest.tsx",
+                    "path": "client/src/components/TailwindTest.tsx",
+                    "type": "file"
+                  },
+                  {
+                    "name": "profile",
+                    "path": "client/src/components/profile",
+                    "type": "dir",
+                    "role": "unknown",
+                    "children": [
+                      {
+                        "name": "AvailableOffers.tsx",
+                        "path": "client/src/components/profile/AvailableOffers.tsx",
+                        "type": "file"
+                      },
+                      {
+                        "name": "PointsTracker.tsx",
+                        "path": "client/src/components/profile/PointsTracker.tsx",
+                        "type": "file"
+                      },
+                      {
+                        "name": "TransactionHistory.tsx",
+                        "path": "client/src/components/profile/TransactionHistory.tsx",
+                        "type": "file"
+                      }
+                    ]
+                  }
+                ]
+              },
+              {
+                "name": "index.css",
+                "path": "client/src/index.css",
+                "type": "file"
+              },
+              {
+                "name": "index.tsx",
+                "path": "client/src/index.tsx",
+                "type": "file"
+              },
+              {
+                "name": "logo.svg",
+                "path": "client/src/logo.svg",
+                "type": "file"
+              },
+              {
+                "name": "pages",
+                "path": "client/src/pages",
+                "type": "dir",
+                "role": "unknown",
+                "children": [
+                  {
+                    "name": "Home.tsx",
+                    "path": "client/src/pages/Home.tsx",
+                    "type": "file"
+                  },
+                  {
+                    "name": "Member.tsx",
+                    "path": "client/src/pages/Member.tsx",
+                    "type": "file"
+                  },
+                  {
+                    "name": "PaloniaCreditCards.tsx",
+                    "path": "client/src/pages/PaloniaCreditCards.tsx",
+                    "type": "file"
+                  },
+                  {
+                    "name": "Promotions.tsx",
+                    "path": "client/src/pages/Promotions.tsx",
+                    "type": "file"
+                  }
+                ]
+              },
+              {
+                "name": "react-app-env.d.ts",
+                "path": "client/src/react-app-env.d.ts",
+                "type": "file"
+              },
+              {
+                "name": "reportWebVitals.ts",
+                "path": "client/src/reportWebVitals.ts",
+                "type": "file"
+              },
+              {
+                "name": "setupTests.ts",
+                "path": "client/src/setupTests.ts",
+                "type": "file"
+              },
+              {
+                "name": "types",
+                "path": "client/src/types",
+                "type": "dir",
+                "role": "unknown",
+                "children": [
+                  {
+                    "name": "member.ts",
+                    "path": "client/src/types/member.ts",
+                    "type": "file"
+                  }
+                ]
+              },
+              {
+                "name": "utils",
+                "path": "client/src/utils",
+                "type": "dir",
+                "role": "unknown",
+                "children": [
+                  {
+                    "name": "mapMemberProfile.ts",
+                    "path": "client/src/utils/mapMemberProfile.ts",
+                    "type": "file"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "name": "tailwind.config.js",
+            "path": "client/tailwind.config.js",
+            "type": "file"
+          },
+          {
+            "name": "tsconfig.json",
+            "path": "client/tsconfig.json",
+            "type": "file"
+          }
+        ]
+      },
+      {
+        "name": "package-lock.json",
+        "path": "package-lock.json",
+        "type": "file"
+      },
+      {
+        "name": "package.json",
+        "path": "package.json",
+        "type": "file"
+      },
+      {
+        "name": "scripts",
+        "path": "scripts",
+        "type": "dir",
+        "role": "unknown",
+        "children": [
+          {
+            "name": "repo-map.mjs",
+            "path": "scripts/repo-map.mjs",
+            "type": "file"
+          }
+        ]
+      },
+      {
+        "name": "server",
+        "path": "server",
+        "type": "dir",
+        "role": "backend",
+        "children": [
+          {
+            "name": ".env",
+            "path": "server/.env",
+            "type": "file"
+          },
+          {
+            "name": "package-lock.json",
+            "path": "server/package-lock.json",
+            "type": "file"
+          },
+          {
+            "name": "package.json",
+            "path": "server/package.json",
+            "type": "file"
+          },
+          {
+            "name": "src",
+            "path": "server/src",
+            "type": "dir",
+            "role": "unknown",
+            "children": [
+              {
+                "name": "index.ts",
+                "path": "server/src/index.ts",
+                "type": "file"
+              },
+              {
+                "name": "routes",
+                "path": "server/src/routes",
+                "type": "dir",
+                "role": "unknown",
+                "children": [
+                  {
+                    "name": "loyalty.ts",
+                    "path": "server/src/routes/loyalty.ts",
+                    "type": "file"
+                  }
+                ]
+              },
+              {
+                "name": "salesforce",
+                "path": "server/src/salesforce",
+                "type": "dir",
+                "role": "unknown",
+                "children": [
+                  {
+                    "name": "auth.ts",
+                    "path": "server/src/salesforce/auth.ts",
+                    "type": "file"
+                  },
+                  {
+                    "name": "sfFetch.ts",
+                    "path": "server/src/salesforce/sfFetch.ts",
+                    "type": "file"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "name": "tsconfig.json",
+            "path": "server/tsconfig.json",
+            "type": "file"
+          }
+        ]
+      },
+      {
+        "name": "static.json",
+        "path": "static.json",
+        "type": "file"
+      }
+    ]
+  }
+}
