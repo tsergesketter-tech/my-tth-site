@@ -27,23 +27,24 @@ export default function SearchResults() {
     guests: params.get("guests") || "1"
   }), [params]);
 
-  useEffect(() => {
-    async function run() {
-      setLoading(true); setError(null);
-      try {
-        const q = new URLSearchParams(query as any).toString();
-        const res = await fetch(`/api/stays/search?${q}`);
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        const data = await res.json();
-        setStays(data.results || []);
-      } catch (e:any) {
-        setError(e.message || "Failed to load results");
-      } finally {
-        setLoading(false);
-      }
+useEffect(() => {
+  async function run() {
+    setLoading(true); setError(null);
+    try {
+      const q = new URLSearchParams(query as any).toString();
+      const res = await fetch(`/api/stays/search?${q}`);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = await res.json();
+      setStays(data.results || []);
+    } catch (e: any) {
+      setError(e.message || "Failed to load results");
+    } finally {
+      setLoading(false);
     }
-    run();
-  }, [query.location, query.checkIn, query.checkOut, query.guests]);
+  }
+  run();
+}, [query]);  // <--- instead of [query.location, query.checkIn, query.checkOut, query.guests]
+
 
   return (
     <div className="mx-auto max-w-6xl px-4 py-6">
