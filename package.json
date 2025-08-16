@@ -4,7 +4,9 @@
   "version": "1.0.0",
   "scripts": {
     "heroku-postbuild": "npm --prefix client ci && npm --prefix client run build && npm --prefix server ci --include=dev && npm --prefix server run build",
-     "repo:map": "node ./scripts/repo-map.mjs"
+     "repo:map": "node ./scripts/repo-map.mjs",
+    "client:dev": "npm --prefix client start",
+    "server:dev": "npm --prefix server run dev"
   },
   "engines": {
     "node": "20.x",

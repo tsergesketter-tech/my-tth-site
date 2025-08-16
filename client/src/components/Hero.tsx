@@ -11,13 +11,13 @@ const Hero = () => {
 
       <div className="relative z-10 flex flex-col justify-center items-start h-full px-8 max-w-screen-xl mx-auto text-white">
         <h1 className="text-4xl md:text-6xl font-bold mb-4">
-          Save 10% on Select Home Rentals
+          Save 10% on Select Stays with Palonia
         </h1>
         <p className="text-lg md:text-xl mb-6">
-          Stay 2+ nights and earn & redeem points on select homes.
+          Stay 2+ nights and earn & redeem points on select rooms.
         </p>
         <button className="bg-white text-black font-semibold px-6 py-3 rounded hover:bg-gray-100 mb-8">
-          Browse Homes
+          Browse Rooms
         </button>
 
         {/* Embed SearchBar in the flow */}

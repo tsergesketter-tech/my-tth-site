@@ -1,27 +1,25 @@
 import React from 'react';
-import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import { BrowserRouter, Routes, Route } from "react-router-dom";
+import Header from "./components/Header";
+import Home from "./pages/Home";
+import Promotions from "./pages/Promotions";
+import MemberPage from "./pages/Member";
+import PaloniaCreditCards from "./pages/PaloniaCreditCards";
+import SearchResults from "./pages/SearchResults"; // NEW
 
-import Header from './components/Header';
-import Footer from './components/Footer';
-import Home from './pages/Home';
-import Promotions from './pages/Promotions';
-import MemberPage from './pages/Member';
-import PaloniaCreditCards from './pages/PaloniaCreditCards';
 
-
-const App = () => {
+export default function App() {
   return (
-    <Router>
+    <BrowserRouter>
       <Header />
       <Routes>
         <Route path="/" element={<Home />} />
         <Route path="/promotions" element={<Promotions />} />
         <Route path="/member" element={<MemberPage />} />
         <Route path="/credit-cards" element={<PaloniaCreditCards />} />
-      </Routes>
-      <Footer />
-    </Router>
-  );
-};
+        <Route path="/search" element={<SearchResults />} />
 
-export default App;
+      </Routes>
+    </BrowserRouter>
+  );
+}
