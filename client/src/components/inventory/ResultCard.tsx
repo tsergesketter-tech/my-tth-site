@@ -1,5 +1,5 @@
-// src/components/inventory/ResultCard.tsx
-import React, { useMemo } from "react";
+// client/src/components/inventory/ResultCard.tsx
+import React from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { useSearch } from "../../context/SearchContext";
 import { usePointsSimulation } from "../../hooks/usePointsSimulation";
@@ -20,11 +20,10 @@ type Stay = {
 
 type Props = {
   stay: Stay;
-  guests?: string | number; // optional override
-  nights?: number;          // optional override
-  // NEW (optional to keep callers flexible)
-  membershipNumber?: string;
-  program?: string;
+  guests?: string | number;  // optional override
+  nights?: number;           // optional override
+  membershipNumber: string;
+  program: string;
   dates?: { checkInISO?: string; checkOutISO?: string };
 };
 
@@ -32,9 +31,9 @@ export default function ResultCard({
   stay,
   guests: guestsProp,
   nights: nightsProp,
-  membershipNumber = "DL12345",
-  program = "Cars and Stays by Delta",
-  dates
+  membershipNumber,
+  program,
+  dates,
 }: Props) {
   const { search } = useSearch();
   const [params] = useSearchParams();
@@ -46,44 +45,44 @@ export default function ResultCard({
     (search.guests ? String(search.guests) : "1");
 
   const nightsFromUrl = Number(params.get("nights")) || undefined;
-  const nightsNum = nightsProp ?? nightsFromUrl ?? search.nights ?? 1;
+  const nights = nightsProp ?? nightsFromUrl ?? search.nights ?? 1;
 
   const perNight = typeof stay.nightlyRate === "number" ? stay.nightlyRate : undefined;
-  const total = perNight !== undefined ? perNight * nightsNum : undefined;
+  const total = perNight !== undefined ? perNight * nights : undefined;
 
+  // Build href (propagate dates if provided)
   const qp = new URLSearchParams();
   if (guests) qp.set("guests", guests);
-  if (nightsNum) qp.set("nights", String(nightsNum));
+  if (nights) qp.set("nights", String(nights));
+  if (dates?.checkInISO) qp.set("checkIn", dates.checkInISO);
+  if (dates?.checkOutISO) qp.set("checkOut", dates.checkOutISO);
+
   const href = `/stay/${encodeURIComponent(stay.slug ?? stay.id)}?${qp.toString()}`;
 
-  // ====== Estimated Points (read from shared sim cache) ======
-  const checkInISO = dates?.checkInISO || "";
-  const checkOutISO = dates?.checkOutISO || "";
+  // ---- Simulation (single-stay) ----
+  const simStay =
+    dates?.checkInISO && dates?.checkOutISO && typeof perNight === "number"
+      ? {
+          stayId: stay.id,
+          propertyName: stay.name,
+          city: stay.city,
+          checkInISO: dates.checkInISO,
+          checkOutISO: dates.checkOutISO,
+          nightlyRate: perNight,
+          currency: stay.currency ?? "USD",
+          nights,
+        }
+      : null;
 
-  // We only need getEstimate; calling the hook with {stays: []} is fine.
-  const { getEstimate } = usePointsSimulation({
-    stays: [],
+  const { loading: simLoading, getEstimate } = usePointsSimulation({
+    stays: simStay ? [simStay] : [],
     program,
-    membershipNumber, // can be undefined if server uses session
-    maxBatch: 0
+    membershipNumber,
+    maxBatch: 1,
   });
 
-  const simStay = useMemo(() => {
-    if (!checkInISO || !checkOutISO) return null;
-    const nightly = typeof stay.nightlyRate === "number" ? stay.nightlyRate : 0;
-    return {
-      stayId: stay.id,
-      propertyName: stay.name,
-      city: stay.city || "",
-      checkInISO,
-      checkOutISO,
-      nightlyRate: nightly,
-      currency: stay.currency ?? "USD",
-      nights: nightsNum
-    };
-  }, [stay.id, stay.name, stay.city, stay.currency, stay.nightlyRate, checkInISO, checkOutISO, nightsNum]);
-
   const estimate = simStay ? getEstimate(simStay) : null;
+  const isSimLoading = simLoading && !estimate;
 
   return (
     <article className="rounded-xl bg-white p-4 shadow flex gap-3">
@@ -118,13 +117,18 @@ export default function ResultCard({
 
         {total !== undefined && (
           <div className="mt-2 text-sm">
-            Total for {nightsNum} night{nightsNum > 1 ? "s" : ""}: <b>${total.toFixed(2)}</b>
+            Total for {nights} night{nights > 1 ? "s" : ""}:{" "}
+            <b>${total.toFixed(2)}</b>
           </div>
         )}
 
-        {/* Estimated Points pill */}
+        {/* Estimated Points pill (with shimmer while loading) */}
         <div className="mt-2">
-          <EstimatedPoints byCurrency={estimate} preferred={["Miles", "MQDs", "PTS"]} />
+          <EstimatedPoints
+            byCurrency={estimate}
+            preferred={["Miles", "MQDs", "PTS"]}
+            loading={isSimLoading}
+          />
         </div>
       </div>
 
@@ -139,5 +143,6 @@ export default function ResultCard({
     </article>
   );
 }
+
 
 

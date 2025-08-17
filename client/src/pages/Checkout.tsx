@@ -108,7 +108,7 @@ export default function Checkout() {
     ];
   }, [stay?.id, stay?.name, stay?.city, stay?.currency, selectedRoom?.nightlyRate, checkInISO, checkOutISO, nights]);
 
-  const { getEstimate, error: simError } = usePointsSimulation({
+  const { loading: simLoading, getEstimate, error: simError } = usePointsSimulation({
     stays: simInput,
     program,
     membershipNumber,
@@ -243,7 +243,7 @@ export default function Checkout() {
           {/* NEW: Estimated Points pill */}
           <div className="mt-3">
             <div className="text-xs text-gray-500 mb-1">Estimated Points</div>
-            <EstimatedPoints byCurrency={estimate} preferred={["Miles", "MQDs", "PTS"]} />
+            <EstimatedPoints byCurrency={estimate} preferred={["Miles", "MQDs", "PTS"]} loading={simLoading && !estimate}/>
             {simError && (
               <div className="mt-2 text-xs text-yellow-800 bg-yellow-50 inline-block px-2 py-1 rounded">
                 Points estimate unavailable right now.
