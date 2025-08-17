@@ -42,7 +42,7 @@ useEffect(() => {
 
     try {
       const res = await fetch(
-        `/api/loyalty/member/${membershipNumber}?program=${encodeURIComponent(loyaltyProgramName)}`
+          `/api/loyalty/members?program=${encodeURIComponent(loyaltyProgramName)}&membershipNumber=${encodeURIComponent(membershipNumber)}`
       );
 
       if (!res.ok) {

@@ -1,4 +1,106 @@
 @tailwind base;
-@tailwind components;
-@tailwind utilities;
+ @tailwind components;
+ @tailwind utilities;
+/* === Day button base (eligible dates) =============================== */
+ .rdp-day > .rdp-button, .rdp-day > .rdp-day_button, .rdp-button_reset.rdp-button {
+     color: #111827 !important;
+    /* gray-900 */
+}
+/* Hover/focus on eligible days */
+ .rdp-day > .rdp-button:hover:not(:disabled), .rdp-day > .rdp-day_button:hover:not(:disabled), .rdp-button_reset.rdp-button:hover:not(:disabled) {
+     background-color: #f3f4f6 !important;
+    /* gray-100 */
+}
+/* === Disabled / outside days ======================================= */
+ .rdp-day_disabled > .rdp-button, .rdp-day_disabled > .rdp-day_button, .rdp-day_outside > .rdp-button, .rdp-day_outside > .rdp-day_button {
+     color: #9ca3af !important;
+    /* gray-400 */
+     opacity: 1 !important;
+    /* neutralize theme opacity */
+}
+/* === Selected / range states ======================================= */
+ .rdp-day_selected, .rdp-day_selected:hover, .rdp-day_selected:focus, .rdp-day_range_start, .rdp-day_range_start:hover, .rdp-day_range_start:focus, .rdp-day_range_end, .rdp-day_range_end:hover, .rdp-day_range_end:focus {
+     background-color: rgb(99 102 241) !important;
+    /* indigo-500 */
+     color: #ffffff !important;
+}
+ .rdp-day_range_middle, .rdp-day_range_middle:hover, .rdp-day_range_middle:focus {
+     background-color: rgb(224 231 255) !important;
+    /* indigo-100 */
+     color: rgb(55 48 163) !important;
+    /* indigo-900 */
+}
+/* Today (only if not selected) */
+ .rdp-day_today:not(.rdp-day_selected):not(.rdp-day_range_start):not(.rdp-day_range_end) > .rdp-button, .rdp-day_today:not(.rdp-day_selected):not(.rdp-day_range_start):not(.rdp-day_range_end) > .rdp-day_button {
+     color: #4f46e5 !important;
+    /* indigo-600 text hint for today */
+}
+/* === Caption & nav ================================================== */
+ .rdp-caption_label {
+     color: #111827 !important;
+    /* gray-900 */
+     font-weight: 500;
+}
+ .rdp-nav_icon {
+     color: #111827 !important;
+    /* gray-900 */
+     fill: currentColor !important;
+    /* ensure path follows color */
+}
+/* Selected day override */
+ .rdp-day_selected > .rdp-button, .rdp-day_selected.rdp-button, .rdp-day[aria-selected="true"] > .rdp-button {
+     background-color: rgb(99 102 241) !important;
+    /* indigo-500 */
+     color: #ffffff !important;
+}
+ .rdp-button[aria-selected="true"] {
+     background-color: #4f46e5 !important;
+    /* Tailwind indigo-600 */
+     color: #fff !important;
+}
+ .rdp-day_selected > .rdp-button:hover, .rdp-day_selected.rdp-button:hover {
+     background-color: rgb(99 102 241) !important;
+    /* keep it indigo on hover */
+}
+/* tighten cells so the bar is continuous */
+ .rdp {
+     --rdp-cell-margin: 0px;
+}
+/* base selected/middle */
+ .rdp-day_selected, .rdp-day_range_middle {
+     background-color: #4f46e5 !important;
+    /* indigo-600 */
+     color: #fff !important;
+     border-radius: 0 !important;
+}
+/* rounded ends */
+ .rdp-day_range_start {
+     background-color: #4f46e5 !important;
+     color: #fff !important;
+     border-radius: 9999px 0 0 9999px !important;
+}
+ .rdp-day_range_end {
+     background-color: #4f46e5 !important;
+     color: #fff !important;
+     border-radius: 0 9999px 9999px 0 !important;
+ }
+ .rdp-day_range_middle > .rdp-button {
+  border-radius: 0 !important; /* flat */
+}
 
+/* Make only the middle days light gray, unless start/end */
+.rdp-day_selected:not(.rdp-day_range_start):not(.rdp-day_range_end) > .rdp-button {
+  background-color: #f3f4f6 !important; /* light gray */
+  color: #111827 !important;            /* gray-900 text */
+  border-radius: 0 !important;          /* flat sides for the bar */
+}
+
+/* Keep cells tight so the bar connects */
+.rdp { --rdp-cell-margin: 0px; }
+
+.rdp-day_range_middle > .rdp-button {
+  border-radius: 0 !important;
+}
+
+/* (optional) ensure no leftover theme sets a bg on buttons */
+.rdp-button { background: transparent !important; }

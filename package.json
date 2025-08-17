@@ -4,9 +4,11 @@
   "version": "1.0.0",
   "scripts": {
     "heroku-postbuild": "npm --prefix client ci && npm --prefix client run build && npm --prefix server ci --include=dev && npm --prefix server run build",
-     "repo:map": "node ./scripts/repo-map.mjs",
+    "repo:map": "node ./scripts/repo-map.mjs",
     "client:dev": "npm --prefix client start",
-    "server:dev": "npm --prefix server run dev"
+    "server:dev": "npm --prefix server run dev",
+    "rebuild": "cd client && npm run build && cd .. && cd server && node dist/index.js"
+
   },
   "engines": {
     "node": "20.x",
@@ -17,7 +19,8 @@
     "date-fns": "^4.1.0",
     "dotenv": "^17.2.1",
     "express": "^4.21.2",
-    "react-datepicker": "^8.4.0"
+    "react-datepicker": "^8.4.0",
+    "react-day-picker": "^9.8.1"
   },
   "devDependencies": {
     "@types/axios": "^0.9.36",

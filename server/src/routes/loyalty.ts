@@ -4,6 +4,20 @@ import { sfFetch } from '../salesforce/sfFetch';
 
 const router = Router();
 
+function sessionMembership(req: import('express').Request) {
+  const m = req.session?.member;
+  return {
+    membershipNumber: m?.membershipNumber ?? null,
+    memberId: m?.memberId ?? null,
+    program: m?.program ?? 'Cars and Stays by Delta'
+  };
+}
+
+
+function prefer<T>(...vals: (T | undefined | null)[]): T | undefined {
+  return vals.find(v => v !== undefined && v !== null) as T | undefined;
+}
+
 // Existing member lookup
 router.get('/member/:membershipNumber', async (req, res) => {
   try {
@@ -38,17 +52,24 @@ router.get('/member/:membershipNumber', async (req, res) => {
 router.post('/transactions', async (req, res) => {
   try {
     const {
-      program = 'NTO',
+      program: bodyProgram = 'NTO',
       page = 1,
-      membershipNumber,
+      membershipNumber: bodyMembership,
       journalType,
       journalSubType,
       periodStartDate,
       periodEndDate,
     } = req.body ?? {};
 
+    const sess = sessionMembership(req);
+    const program = prefer(bodyProgram, sess.program) || 'NTO';
+    const membershipNumber = prefer(bodyMembership, sess.membershipNumber) ?? null;
+
     if (!membershipNumber) {
-      return res.status(400).json({ message: 'membershipNumber is required' });
+      return res.status(200).json({
+        page: 1, pageSize: 0, totalPages: 0, nextPage: null, prevPage: null,
+        items: [], notLinked: true
+      });
     }
 
     const path =
@@ -72,7 +93,6 @@ router.post('/transactions', async (req, res) => {
       return res.status(sf.status).json({ message: msg, raw: data });
     }
 
-    // Normalize common shapes
     const items =
       data?.items ??
       data?.records ??
@@ -86,7 +106,6 @@ router.post('/transactions', async (req, res) => {
       data?.totalPages ??
       (data?.totalCount && pageSize ? Math.ceil(data.totalCount / pageSize) : undefined);
 
-    // Try to infer next/prev from URL if provided
     const parsePage = (u?: string | null) => {
       if (!u) return null;
       try { return Number(new URL(u, 'http://x').searchParams.get('page')); } catch { return null; }
@@ -123,7 +142,6 @@ router.post('/transactions', async (req, res) => {
     res.status(500).json({ message: msg });
   }
 });
-
 
 // New: promotions via Program Process "Get Member Promotions"
 router.post('/promotions', async (req, res) => {
@@ -171,6 +189,89 @@ router.post('/promotions', async (req, res) => {
     res.status(500).json({ message: msg });
   }
 });
+
+// New: simulate estimated points via Realtime Program Process (isSimulation=true)
+// routes/loyalty.ts  (simulate handler)
+// routes/loyalty.ts  (inside router.post('/simulate', ...))
+router.post('/simulate', async (req, res) => {
+  try {
+    const {
+      program = 'Cars and Stays by Delta',
+      membershipNumber,
+      journals = [],
+      transactionJournals = [],
+    } = req.body ?? {};
+
+    // Accept either key from the client
+    const inputJournals: any[] =
+      (Array.isArray(transactionJournals) && transactionJournals.length
+        ? transactionJournals
+        : Array.isArray(journals)
+        ? journals
+        : []);
+
+    if (!inputJournals.length) {
+      return res.status(400).json({ message: 'journals[] or transactionJournals[] is required' });
+    }
+
+    // (optional) resolve MemberId from membershipNumber once, then add to each journal if missing
+    let resolvedMemberId: string | null = null;
+    if (membershipNumber) {
+      const mPath =
+        `/services/data/v64.0/loyalty-programs/${encodeURIComponent(program)}` +
+        `/members?membershipNumber=${encodeURIComponent(membershipNumber)}`;
+      const mResp = await sfFetch(mPath, { method: 'GET' });
+      if (mResp.ok) {
+        const mJson = await mResp.json().catch(() => null);
+        resolvedMemberId = mJson?.[0]?.Id || mJson?.records?.[0]?.Id || mJson?.members?.[0]?.Id || null;
+      }
+    }
+
+    const txns = inputJournals.map(j =>
+      resolvedMemberId && !j.MemberId ? { ...j, MemberId: resolvedMemberId } : j
+    );
+
+    // Realtime simulation: correct shape
+    const path = `/services/data/v64.0/connect/realtime/loyalty/programs/${encodeURIComponent(program)}`;
+    const body = {
+      transactionJournals: txns,
+      runSetting: { isSimulation: true },
+    };
+
+    const sf = await sfFetch(path, { method: 'POST', body: JSON.stringify(body) });
+    const data = await sf.json();
+    if (!sf.ok) {
+      const msg = data?.[0]?.message || data?.message || `HTTP ${sf.status}`;
+      return res.status(sf.status).json({ message: msg, raw: data });
+    }
+
+    // Normalize simulation output
+    const simTJs = data?.simulationResults?.transactionJournals ?? data?.transactionJournals ?? [];
+    const results = simTJs.map((tj: any, i: number) => {
+      const points = tj?.executionSummary?.pointsSummary ?? [];
+      const byCurrency: Record<string, number> = {};
+      for (const p of points) {
+        const curr = p?.loyaltyProgramCurrencyName || p?.currencyIsoCode || 'PTS';
+        const delta = Number(p?.changeInPointsBalance ?? p?.changeInPoints ?? 0);
+        byCurrency[curr] = (byCurrency[curr] ?? 0) + delta;
+      }
+      return {
+        index: i,
+        byCurrency,
+        errorMessage: tj?.errorMessage ?? null,
+        processName: tj?.processName ?? null,
+      };
+    });
+
+    res.json({ results, raw: data });
+  } catch (e: unknown) {
+    const msg = e instanceof Error ? e.message : String(e);
+    res.status(500).json({ message: msg });
+  }
+});
+
+
+
 
 export default router;
 
