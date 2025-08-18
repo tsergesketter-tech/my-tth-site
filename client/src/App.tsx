@@ -22,24 +22,46 @@ import StayDetail from "./pages/StayDetail";
 import LoginCard, { useAuth } from "./components/LoginCard";
 
 // --- Protect routes ---
+// --- Protect routes ---
 function RequireAuth({ children }: { children: ReactNode }) {
   const { state } = useAuth();
-  const location = useLocation();
+  const location = useLocation() as any;
+
   if (state.status !== "authenticated") {
-    return <Navigate to="/login" replace state={{ from: location }} />;
+    const payload = {
+      from: { pathname: location.pathname, search: location.search || "" },
+      ctx: location.state?.ctx ?? null,
+    };
+    sessionStorage.setItem("postLogin", JSON.stringify(payload));
+    return <Navigate to="/login" replace state={payload} />;
   }
   return <>{children}</>;
 }
 
 // --- Login page (redirects after success) ---
 function LoginPage() {
-  const { state } = useAuth();
   const navigate = useNavigate();
   const location = useLocation() as any;
-  const from = location.state?.from?.pathname ?? "/member";
+
+  const stored =
+    (location.state as any) ||
+    JSON.parse(sessionStorage.getItem("postLogin") || "null");
+
+  const targetPath = stored?.from?.pathname ?? "/member";
+  const targetSearch = stored?.from?.search ?? "";
+  const ctx = stored?.ctx ?? null;
+
   return (
     <div style={{ padding: 24 }}>
-      <LoginCard onSuccess={() => navigate(from, { replace: true })} />
+      <LoginCard
+        onSuccess={() => {
+          sessionStorage.removeItem("postLogin");
+          navigate(`${targetPath}${targetSearch}`, {
+            replace: true,
+            state: ctx ? { ctx } : undefined,
+          });
+        }}
+      />
       <p style={{ marginTop: 12 }}>
         <Link to="/">← Back to home</Link>
       </p>

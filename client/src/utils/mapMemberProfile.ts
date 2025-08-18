@@ -1,44 +1,69 @@
-// src/utils/mapMemberProfile.ts
-import type { MemberProfile as UIProfile } from '../types/member';
+import type { MemberProfile } from "../types/member";
 
-export function mapSFMemberProfile(apiData: any): UIProfile {
-  const contact = apiData.associatedContact ?? {};
-  const tierObj = apiData.memberTiers?.[0] ?? {};
-  
-  // Find reward points & tier points from memberCurrencies
-  const rewardPoints = apiData.memberCurrencies?.find(
-    (c: any) => c.loyaltyMemberCurrencyName === 'Miles'
-  )?.pointsBalance ?? 0;
+export function mapSFMemberProfile(sf: any): MemberProfile {
+  // Names
+  const firstName = sf?.associatedContact?.firstName ?? "";
+  const lastName = sf?.associatedContact?.lastName ?? "";
 
-  const tierPoints = apiData.memberCurrencies?.find(
-    (c: any) => c.loyaltyMemberCurrencyName === 'MQDs'
-  )?.pointsBalance ?? 0;
+  // Membership basics
+  const membershipNumber = sf?.membershipNumber ?? "";
+  const memberSince = sf?.enrollmentDate ?? null;
+
+  // Tier
+  const tierRec = Array.isArray(sf?.memberTiers) ? sf.memberTiers[0] : null;
+  const tierName = tierRec?.loyaltyMemberTierName ?? "";
+  const tier: MemberProfile["tier"] = {
+    name: tierName,
+    // If you later expose next-tier in API, map here:
+    nextTierName: undefined,
+    progressPercent: undefined,
+  };
+
+  // Currencies: fold into dictionary by name ("Miles", "MQDs", etc.)
+  const currenciesArr = Array.isArray(sf?.memberCurrencies)
+    ? sf.memberCurrencies
+    : [];
+
+  const byName: Record<string, any> = {};
+  for (const c of currenciesArr) {
+    const key = c?.loyaltyMemberCurrencyName;
+    if (key) byName[key] = c;
+  }
+
+  // Balances
+  const milesBal = byName["Miles"]?.pointsBalance;
+  const mqdsBal  = byName["MQDs"]?.pointsBalance;
+
+  // Keep "availablePoints" as your main headline (use Miles balance)
+  const availablePoints = typeof milesBal === "number" ? milesBal : 0;
+
+  // Optional: keep lifetimePoints if your org ever provides it elsewhere
+  const lifetimePoints =
+    typeof sf?.lifetimePoints === "number" ? sf.lifetimePoints : 0;
+
+  // Vouchers/offers counts (placeholders until API exposes real values)
+  const vouchersCount =
+    typeof sf?.vouchersCount === "number" ? sf.vouchersCount : undefined;
+  const offersCount =
+    typeof sf?.offersCount === "number" ? sf.offersCount : undefined;
+
+  // Avatar (demo)
+  const avatarUrl =
+    sf?.additionalLoyaltyProgramMemberFields?.Avatar__c || "";
 
   return {
-    memberId: apiData.loyaltyProgramMemberId,
-    membershipNumber: apiData.membershipNumber,
-    firstName: contact.firstName ?? '',
-    lastName: contact.lastName ?? '',
-    email: contact.email ?? '',
-    tier: {
-      name: tierObj.loyaltyMemberTierName ?? '',
-      rank: tierObj.tierSequenceNumber, // smaller number = higher rank depending on config
-      // Optional: If you know the sequence of tiers, you can set nextTierName
-      progressPercent: calcTierProgress(tierPoints), // placeholder calc
-    },
-    availablePoints: rewardPoints,
-    lifetimePoints: undefined, // This API doesn’t return lifetime, unless you repurpose totalPointsAccrued
-    memberSince: apiData.enrollmentDate,
-    vouchersCount: undefined, // Could map from a separate vouchers API
-    offersCount: undefined,   // Could map from available offers API
-    avatarUrl: undefined,     // Could map from contact image if stored
+    memberId: sf?.loyaltyProgramMemberId,
+    membershipNumber,
+    firstName,
+    lastName,
+    availablePoints,
+    lifetimePoints,
+    miles: typeof milesBal === "number" ? milesBal : undefined,
+    mqds: typeof mqdsBal === "number" ? mqdsBal : undefined,
+    memberSince,
+    avatarUrl,
+    vouchersCount,
+    offersCount,
+    tier,
   };
 }
-
-function calcTierProgress(tierPoints: number): number {
-  // Dummy example: 0–5000 = Silver → Gold
-  const nextTierThreshold = 5000;
-  return Math.min(100, (tierPoints / nextTierThreshold) * 100);
-}
-
-export{};

@@ -24,8 +24,11 @@ export type MemberProfile = {
   /** Current tier info */
   tier: TierInfo;
 
+  miles?: number;
+  mqds?: number;
+
   /** Redeemable balance (points/miles) */
-  availablePoints: number;
+  availablePoints?: number;
 
   /** Optional extras */
   lifetimePoints?: number;

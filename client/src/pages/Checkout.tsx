@@ -1,36 +1,71 @@
 // src/pages/Checkout.tsx
 import React, { useEffect, useMemo, useState } from "react";
-import { Link, useNavigate, useSearchParams } from "react-router-dom";
+import {
+  Link,
+  useNavigate,
+  useSearchParams,
+  useLocation,
+} from "react-router-dom";
 
-// NEW: imports for simulation + pill
 import { usePointsSimulation } from "../hooks/usePointsSimulation";
 import EstimatedPoints from "../components/EstimatedPoints";
 
-type Room = { code: string; name: string; nightlyRate: number; refundable: boolean };
+type Room = {
+  code: string;
+  name: string;
+  nightlyRate: number;
+  refundable: boolean;
+};
 type Stay = {
   id: string;
   name: string;
   city: string;
   nightlyRate: number;
-  currency?: string; // optional currency code, defaults to USD
+  currency?: string;
   gallery?: string[];
   rooms?: Room[];
-  fees?: { taxesPct: number; resortFee: number }; // per-night assumption
+  fees?: { taxesPct: number; resortFee: number };
 };
 
 export default function Checkout() {
   const [params] = useSearchParams();
+  const location = useLocation() as any;
   const navigate = useNavigate();
 
-  const stayId = params.get("stay") || "";
-  const roomCode = params.get("room") || "";
-  const guests = params.get("guests") || "1";
+  // 1) From query params
+  const stayFromUrl = params.get("stay") || params.get("stayId") || "";
+  const roomFromUrl = params.get("room") || "";
+  const guestsFromUrl = params.get("guests") || "1";
   const nightsParam = Number(params.get("nights"));
-  const nights = Number.isFinite(nightsParam) && nightsParam > 0 ? nightsParam : 1;
+  const nightsFromUrl =
+    Number.isFinite(nightsParam) && nightsParam > 0 ? nightsParam : 1;
+  const checkInFromUrl = params.get("checkIn") || "";
+  const checkOutFromUrl = params.get("checkOut") || "";
 
-  // NEW: bring in check-in/out passed from StayDetail
-  const checkInISO = params.get("checkIn") || "";
-  const checkOutISO = params.get("checkOut") || "";
+  // 2) From router state (set during post-login restore)
+  const stateCtx = location.state?.ctx || null;
+
+  // 3) Defensive session fallback
+  const stored = (() => {
+    try {
+      return JSON.parse(sessionStorage.getItem("postLogin") || "null");
+    } catch {
+      return null;
+    }
+  })();
+
+  const stayId =
+    stayFromUrl || stateCtx?.stayId || stored?.ctx?.stayId || "";
+  const roomCode =
+    roomFromUrl || stateCtx?.roomCode || stored?.ctx?.roomCode || "";
+  const guests =
+    guestsFromUrl || stateCtx?.guests || stored?.ctx?.guests || "1";
+  const nights =
+    nightsFromUrl || stateCtx?.nights || stored?.ctx?.nights || 1;
+  const checkInISO =
+    checkInFromUrl || stateCtx?.checkIn || stored?.ctx?.checkIn || "";
+  const checkOutISO =
+    checkOutFromUrl || stateCtx?.checkOut || stored?.ctx?.checkOut || "";
 
   const [loading, setLoading] = useState(true);
   const [stay, setStay] = useState<Stay | null>(null);
@@ -44,13 +79,15 @@ export default function Checkout() {
         if (!stayId) throw new Error("Missing stay id");
         const base = window.location.origin;
 
-        let res = await fetch(`${base}/api/stays/${encodeURIComponent(stayId)}`, {
-          credentials: "include",
-        });
+        let res = await fetch(
+          `${base}/api/stays/${encodeURIComponent(stayId)}`,
+          { credentials: "include" }
+        );
         if (!res.ok) {
-          res = await fetch(`${base}/api/stays/by-slug/${encodeURIComponent(stayId)}`, {
-            credentials: "include",
-          });
+          res = await fetch(
+            `${base}/api/stays/by-slug/${encodeURIComponent(stayId)}`,
+            { credentials: "include" }
+          );
           if (!res.ok) throw new Error(`Stay not found (${stayId})`);
         }
         const data: Stay = await res.json();
@@ -70,9 +107,9 @@ export default function Checkout() {
   );
 
   const currency = stay?.currency || "USD";
-  const fmt = (n: number) => n.toLocaleString(undefined, { style: "currency", currency });
+  const fmt = (n: number) =>
+    n.toLocaleString(undefined, { style: "currency", currency });
 
-  // Multi-night price calc
   const price = useMemo(() => {
     const nightly = selectedRoom?.nightlyRate ?? stay?.nightlyRate ?? 0;
     const taxesPct = stay?.fees?.taxesPct ?? 0;
@@ -83,11 +120,19 @@ export default function Checkout() {
     const taxes = +(subtotalNights * taxesPct).toFixed(2);
     const total = +(subtotalNights + resortFees + taxes).toFixed(2);
 
-    return { nightly, taxesPct, resortFeePerNight, subtotalNights, resortFees, taxes, total };
+    return {
+      nightly,
+      taxesPct,
+      resortFeePerNight,
+      subtotalNights,
+      resortFees,
+      taxes,
+      total,
+    };
   }, [stay, selectedRoom, nights]);
 
-  // === NEW: Points Simulation ===
-  const membershipNumber = "DL12345"; // replace with real member context
+  // === Points Simulation ===
+  const membershipNumber = "DL12345";
   const program = "Cars and Stays by Delta";
 
   const simInput = useMemo(() => {
@@ -106,9 +151,22 @@ export default function Checkout() {
         nights,
       },
     ];
-  }, [stay?.id, stay?.name, stay?.city, stay?.currency, selectedRoom?.nightlyRate, checkInISO, checkOutISO, nights]);
+  }, [
+    stay?.id,
+    stay?.name,
+    stay?.city,
+    stay?.currency,
+    selectedRoom?.nightlyRate,
+    checkInISO,
+    checkOutISO,
+    nights,
+  ]);
 
-  const { loading: simLoading, getEstimate, error: simError } = usePointsSimulation({
+  const {
+    loading: simLoading,
+    getEstimate,
+    error: simError,
+  } = usePointsSimulation({
     stays: simInput,
     program,
     membershipNumber,
@@ -116,7 +174,8 @@ export default function Checkout() {
   });
   const estimate = simInput.length ? getEstimate(simInput[0]) : null;
 
-  if (loading) return <div className="mx-auto max-w-4xl p-6">Loading checkout…</div>;
+  if (loading)
+    return <div className="mx-auto max-w-4xl p-6">Loading checkout…</div>;
 
   if (error || !stay) {
     return (
@@ -136,11 +195,13 @@ export default function Checkout() {
   const s = stay as NonNullable<typeof stay>;
 
   if (!selectedRoom) {
-    const backHref = `/stay/${encodeURIComponent(s.id)}?guests=${encodeURIComponent(
-      guests
-    )}&nights=${encodeURIComponent(String(nights))}&checkIn=${encodeURIComponent(
-      checkInISO
-    )}&checkOut=${encodeURIComponent(checkOutISO)}`;
+    const backHref = `/stay/${encodeURIComponent(
+      s.id
+    )}?guests=${encodeURIComponent(guests)}&nights=${encodeURIComponent(
+      String(nights)
+    )}&checkIn=${encodeURIComponent(checkInISO)}&checkOut=${encodeURIComponent(
+      checkOutISO
+    )}`;
     return (
       <div className="mx-auto max-w-4xl p-6">
         <div className="rounded-xl bg-yellow-50 p-6 text-yellow-800 shadow">
@@ -179,7 +240,7 @@ export default function Checkout() {
         bookingId = json.bookingId || bookingId;
       }
     } catch {
-      // ignore; keep fallback id
+      // ignore
     }
 
     navigate(
@@ -189,7 +250,9 @@ export default function Checkout() {
         r.code
       )}&guests=${encodeURIComponent(guests)}&nights=${encodeURIComponent(
         String(nights)
-      )}&checkIn=${encodeURIComponent(checkInISO)}&checkOut=${encodeURIComponent(checkOutISO)}`
+      )}&checkIn=${encodeURIComponent(
+        checkInISO
+      )}&checkOut=${encodeURIComponent(checkOutISO)}`
     );
   }
 
@@ -240,10 +303,13 @@ export default function Checkout() {
             Guests: {guests} • Nights: {nights}
           </div>
 
-          {/* NEW: Estimated Points pill */}
           <div className="mt-3">
             <div className="text-xs text-gray-500 mb-1">Estimated Points</div>
-            <EstimatedPoints byCurrency={estimate} preferred={["Miles", "MQDs", "PTS"]} loading={simLoading && !estimate}/>
+            <EstimatedPoints
+              byCurrency={estimate}
+              preferred={["Miles", "MQDs", "PTS"]}
+              loading={simLoading && !estimate}
+            />
             {simError && (
               <div className="mt-2 text-xs text-yellow-800 bg-yellow-50 inline-block px-2 py-1 rounded">
                 Points estimate unavailable right now.
@@ -253,46 +319,71 @@ export default function Checkout() {
         </div>
       </aside>
 
-      {/* Guest & payment form (demo) */}
+      {/* Guest & payment form */}
       <section className="md:col-span-2 rounded-2xl bg-white p-5 shadow">
-        <div className="mb-4 text-lg font-semibold text-gray-900">Guest details</div>
+        <div className="mb-4 text-lg font-semibold text-gray-900">
+          Guest details
+        </div>
         <form onSubmit={handleSubmit} noValidate className="space-y-4">
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="block text-sm text-gray-700">First name</label>
-              <input name="firstName" className="mt-1 w-full rounded-md border px-3 py-2" />
+              <input
+                name="firstName"
+                className="mt-1 w-full rounded-md border px-3 py-2"
+              />
             </div>
             <div>
               <label className="block text-sm text-gray-700">Last name</label>
-              <input name="lastName" className="mt-1 w-full rounded-md border px-3 py-2" />
+              <input
+                name="lastName"
+                className="mt-1 w-full rounded-md border px-3 py-2"
+              />
             </div>
           </div>
 
           <div>
             <label className="block text-sm text-gray-700">Email</label>
-            <input name="email" className="mt-1 w-full rounded-md border px-3 py-2" />
+            <input
+              name="email"
+              className="mt-1 w-full rounded-md border px-3 py-2"
+            />
           </div>
 
           <div className="mb-2 text-lg font-semibold text-gray-900">Payment</div>
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="block text-sm text-gray-700">Card number</label>
-              <input name="cardNumber" className="mt-1 w-full rounded-md border px-3 py-2" />
+              <input
+                name="cardNumber"
+                className="mt-1 w-full rounded-md border px-3 py-2"
+              />
             </div>
             <div>
-              <label className="block text-sm text-gray-700">Expiry (MM/YY)</label>
-              <input name="expiry" className="mt-1 w-full rounded-md border px-3 py-2" />
+              <label className="block text-sm text-gray-700">
+                Expiry (MM/YY)
+              </label>
+              <input
+                name="expiry"
+                className="mt-1 w-full rounded-md border px-3 py-2"
+              />
             </div>
           </div>
 
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="block text-sm text-gray-700">CVC</label>
-              <input name="cvc" className="mt-1 w-full rounded-md border px-3 py-2" />
+              <input
+                name="cvc"
+                className="mt-1 w-full rounded-md border px-3 py-2"
+              />
             </div>
             <div>
               <label className="block text-sm text-gray-700">Postal code</label>
-              <input name="postal" className="mt-1 w-full rounded-md border px-3 py-2" />
+              <input
+                name="postal"
+                className="mt-1 w-full rounded-md border px-3 py-2"
+              />
             </div>
           </div>
 
@@ -305,9 +396,13 @@ export default function Checkout() {
 
           <div className="mt-3">
             <Link
-              to={`/stay/${encodeURIComponent(s.id)}?guests=${encodeURIComponent(
+              to={`/stay/${encodeURIComponent(
+                s.id
+              )}?guests=${encodeURIComponent(
                 guests
-              )}&nights=${encodeURIComponent(String(nights))}&checkIn=${encodeURIComponent(
+              )}&nights=${encodeURIComponent(
+                String(nights)
+              )}&checkIn=${encodeURIComponent(
                 checkInISO
               )}&checkOut=${encodeURIComponent(checkOutISO)}`}
               className="text-indigo-600 hover:underline"
@@ -320,4 +415,3 @@ export default function Checkout() {
     </div>
   );
 }
-

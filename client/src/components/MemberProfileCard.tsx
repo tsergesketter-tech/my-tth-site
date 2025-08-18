@@ -60,13 +60,19 @@ export default function MemberProfileCard({
     lastName,
     tier,
     availablePoints,
-    lifetimePoints,
     membershipNumber,
     memberSince,
     vouchersCount,
     offersCount,
     avatarUrl,
   } = profile;
+
+  // New: tolerant reads for miles/MQDs (works even if your MemberProfile type
+  // doesn’t have them yet; you can add them later without changing this file)
+  const miles = (profile as any)?.miles as number | undefined;
+  const mqds =
+    (profile as any)?.mqds ??
+    (profile as any)?.mqd as number | undefined; // accept either key
 
   return (
     <div style={styles.card}>
@@ -100,14 +106,26 @@ export default function MemberProfileCard({
       </div>
 
       <div style={styles.kpiRow}>
+        {/* Available Points (unchanged) */}
         <div style={styles.kpi}>
           <div style={styles.kpiLabel}>Available Points</div>
           <div style={styles.kpiValue}>{fmtNumber(availablePoints)}</div>
         </div>
+
+        {/* Replaced "Lifetime Points" with Miles + MQDs */}
         <div style={styles.kpi}>
-          <div style={styles.kpiLabel}>Lifetime Points</div>
-          <div style={styles.kpiValue}>{fmtNumber(lifetimePoints)}</div>
+          <div style={styles.kpiRowCompact}>
+            <div>
+              <div style={styles.kpiLabel}>Miles</div>
+              <div style={styles.kpiValueSmall}>{fmtNumber(miles)}</div>
+            </div>
+            <div>
+              <div style={styles.kpiLabel}>MQDs</div>
+              <div style={styles.kpiValueSmall}>{fmtNumber(mqds)}</div>
+            </div>
+          </div>
         </div>
+
         {typeof vouchersCount === 'number' && (
           <div style={styles.kpi}>
             <div style={styles.kpiLabel}>Vouchers</div>
@@ -236,6 +254,15 @@ const styles: Record<string, React.CSSProperties> = {
   },
   kpiLabel: { fontSize: 12, color: '#64748b' },
   kpiValue: { fontSize: 20, fontWeight: 800, marginTop: 2 },
+
+  // New compact KPI row (two columns for Miles/MQDs)
+  kpiRowCompact: {
+    display: 'grid',
+    gridTemplateColumns: '1fr 1fr',
+    gap: 12,
+  },
+  kpiValueSmall: { fontSize: 18, fontWeight: 800, marginTop: 2 },
+
   progressHeader: {
     display: 'flex',
     justifyContent: 'space-between',
@@ -285,4 +312,4 @@ const styles: Record<string, React.CSSProperties> = {
   },
 };
 
-export{};
+export {};
