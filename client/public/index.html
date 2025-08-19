@@ -4,7 +4,7 @@
     <meta name="google-site-verification" content="aqDz9by4_S5D_lbGqL1NZ_NmY75NCHhnjEwXs43v4So" />
     <meta charset="utf-8" />
     <link rel="icon" href="%PUBLIC_URL%/favicon.ico" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, minimum-scale=1">
     <meta name="theme-color" content="#000000" />
     <meta
       name="description"
@@ -28,7 +28,22 @@
     <title>React App</title>
   </head>
   <body>
-    <noscript>You need to enable JavaScript to run this app.</noscript>
+    <script type="text/javascript">
+    function initEmbeddedMessaging() {
+      try {
+        embeddedservice_bootstrap.settings.language = 'en_US';
+        embeddedservice_bootstrap.init(
+          '00Dao00000Yz1Wx',
+          'Agent_Web_Deployment',
+          'https://deltaloyalty-demo.my.site.com/ESWAgentWebDeployment1749608334404',
+          { scrt2URL: 'https://deltaloyalty-demo.my.salesforce-scrt.com' }
+        );
+      } catch (err) {
+        console.error('Error loading Embedded Messaging: ', err);
+      }
+    }
+  </script>
+  <script type="text/javascript" src="https://deltaloyalty-demo.my.site.com/ESWAgentWebDeployment1749608334404/assets/js/bootstrap.min.js" onload="initEmbeddedMessaging()"></script>
     <div id="root"></div>
     <!--
       This HTML file is a template.
