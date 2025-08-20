@@ -9,6 +9,8 @@ import {
 
 import { usePointsSimulation } from "../hooks/usePointsSimulation";
 import EstimatedPoints from "../components/EstimatedPoints";
+import RedemptionForm from "../components/RedemptionForm";
+import { postStayAccrual, buildAccrualFromCheckout } from "../utils/loyaltyTransactions";
 
 type Room = {
   code: string;
@@ -174,6 +176,19 @@ export default function Checkout() {
   });
   const estimate = simInput.length ? getEstimate(simInput[0]) : null;
 
+  // === Redemption (UI only, not wired) ===
+  const [redeemPoints, setRedeemPoints] = useState<number>(0);
+  // Choose a display conversion (adjust later to your program’s rule)
+  const POINT_VALUE_USD = 0.01; // $0.01 per point (for UI preview only)
+  const redeemCredit = useMemo(
+    () => +(Math.max(0, redeemPoints) * POINT_VALUE_USD).toFixed(2),
+    [redeemPoints]
+  );
+  const adjustedTotal = useMemo(
+    () => +(Math.max(0, price.total - redeemCredit)).toFixed(2),
+    [price.total, redeemCredit]
+  );
+
   if (loading)
     return <div className="mx-auto max-w-4xl p-6">Loading checkout…</div>;
 
@@ -223,6 +238,7 @@ export default function Checkout() {
 
     let bookingId = `BK-${Date.now()}`;
 
+    // 1. Create booking in your local system
     try {
       const res = await fetch("/api/bookings", {
         method: "POST",
@@ -232,7 +248,7 @@ export default function Checkout() {
           roomCode: r.code,
           guests,
           nights,
-          total: price.total,
+          total: price.total, // NOTE: accrual uses original total; redemption not wired yet
         }),
       });
       if (res.ok) {
@@ -240,9 +256,37 @@ export default function Checkout() {
         bookingId = json.bookingId || bookingId;
       }
     } catch {
-      // ignore
+      // ignore booking errors, still try to post journal
     }
 
+    // 2. Post Accrual / Stay journal to Loyalty Management (kept as-is for now)
+    try {
+      const payload = buildAccrualFromCheckout({
+        bookingId,
+        currency: stay?.currency ?? "USD",
+        total: price.total,
+        taxes: price.taxes,
+        nights,
+        checkInISO,
+        checkOutISO,
+        city: s.city,
+        posa: "US",                 // hardcoded example, replace if dynamic
+        memberId: undefined,        // supply Program Member Id if you have it
+        channel: "Web",
+        paymentMethod: "Delta Card",
+        paymentType: "Cash",
+        destinationCountry: "US",   // set if you know
+        bookingDate: new Date().toISOString().slice(0, 10),
+      });
+
+      await postStayAccrual(payload);
+      console.log("Accrual journal posted:", payload);
+    } catch (err) {
+      console.warn("Accrual journal failed:", err);
+      // non-blocking: user still proceeds to confirmation
+    }
+
+    // 3. Navigate to confirmation page
     navigate(
       `/confirmation?booking=${encodeURIComponent(
         bookingId
@@ -293,10 +337,25 @@ export default function Checkout() {
               </div>
             )}
 
+            {/* Points credit (UI only) */}
+            {redeemPoints > 0 && (
+              <div className="flex justify-between text-emerald-700">
+                <span>Points credit ({redeemPoints.toLocaleString()} pts)</span>
+                <span>-{fmt(redeemCredit)}</span>
+              </div>
+            )}
+
             <div className="mt-2 border-t pt-2 flex justify-between font-semibold text-gray-900">
-              <span>Total</span>
-              <span>{fmt(price.total)}</span>
+              <span>{redeemPoints > 0 ? "Pay today" : "Total"}</span>
+              <span>{fmt(redeemPoints > 0 ? adjustedTotal : price.total)}</span>
             </div>
+
+            {redeemPoints > 0 && (
+              <div className="text-xs text-gray-500">
+                Preview only • {redeemPoints.toLocaleString()} pts ≈ {fmt(redeemCredit)} at{" "}
+                {(POINT_VALUE_USD * 100).toFixed(2)}¢/pt
+              </div>
+            )}
           </div>
 
           <div className="mt-3 text-xs text-gray-500">
@@ -350,7 +409,28 @@ export default function Checkout() {
             />
           </div>
 
-          <div className="mb-2 text-lg font-semibold text-gray-900">Payment</div>
+          {/* Redemption UI (elegant placement before Payment) */}
+          <div className="pt-2">
+            <div className="mb-2 text-lg font-semibold text-gray-900">
+              Apply points (optional)
+            </div>
+            <div className="rounded-xl border p-4 shadow-sm bg-white">
+              <RedemptionForm
+                bookingId={`preview-${Date.now()}`} // preview only (not wired yet)
+                maxPoints={undefined}               // pass balance when you have it
+                onPreview={(pts) => setRedeemPoints(Math.max(0, Math.floor(pts)))}
+                onSubmit={(pts) => setRedeemPoints(Math.max(0, Math.floor(pts)))}
+              />
+              {redeemPoints > 0 && (
+                <div className="mt-2 text-sm text-gray-700">
+                  You’re previewing <strong>{redeemPoints.toLocaleString()} pts</strong> (
+                  ≈ {fmt(redeemCredit)}). Your displayed total above reflects this.
+                </div>
+              )}
+            </div>
+          </div>
+
+          <div className="mt-4 text-lg font-semibold text-gray-900">Payment</div>
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="block text-sm text-gray-700">Card number</label>
@@ -391,7 +471,7 @@ export default function Checkout() {
             type="submit"
             className="mt-2 rounded-lg bg-indigo-600 px-4 py-2 font-semibold text-white hover:bg-indigo-700"
           >
-            Confirm and pay
+            Confirm and pay {redeemPoints > 0 ? `• ${fmt(adjustedTotal)}` : ""}
           </button>
 
           <div className="mt-3">
@@ -415,3 +495,4 @@ export default function Checkout() {
     </div>
   );
 }
+

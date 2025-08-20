@@ -1,6 +1,8 @@
 // routes/loyalty.ts
 import { Router } from 'express';
 import { sfFetch } from '../salesforce/sfFetch';
+import { z } from "zod";
+import { executeAccrualStayJournal } from "../salesforce/journals";
 
 const router = Router();
 
@@ -17,6 +19,85 @@ function sessionMembership(req: import('express').Request) {
 function prefer<T>(...vals: (T | undefined | null)[]): T | undefined {
   return vals.find(v => v !== undefined && v !== null) as T | undefined;
 }
+
+const StayJournalSchema = z.object({
+  // idempotency + member
+  ExternalTransactionNumber: z.string().min(6),
+  MemberId: z.string().optional(),          // if you have it (else rely on endpoint resolution rules)
+
+  // required:
+  ActivityDate: z.string(),                 // ISO
+  CurrencyIsoCode: z.string().min(3),
+  TransactionAmount: z.number().positive(),
+
+  // optional hotel fields you gave in the schema:
+  Channel: z.string().optional(),
+  PaymentMethod: z.string().optional(),
+  Payment_Type__c: z.string().optional(),
+  Cash_Paid__c: z.number().optional(),
+  Total_Package_Amount__c: z.number().optional(),
+  Booking_Tax__c: z.number().optional(),
+  BookingDate: z.string().optional(),       // YYYY-MM-DD
+  StartDate: z.string().optional(),
+  EndDate: z.string().optional(),
+  Length_of_Booking__c: z.number().optional(),
+  Length_of_Stay__c: z.number().optional(),
+  Destination_Country__c: z.string().optional(),
+  Destination_City__c: z.string().optional(),
+  LOB__c: z.string().optional(),
+  POSa__c: z.string().optional(),
+  Hotel_Superbrand__c: z.string().optional(),
+  Comment: z.string().optional(),
+});
+
+router.post("/api/loyalty/journals/accrual-stay", async (req, res) => {
+  try {
+    const body: AccrualStayJournal = {
+      // Force Accrual / Stay
+      JournalTypeId: process.env.SF_JOURNAL_TYPE_ACCRUAL_ID!,
+      JournalSubTypeId: process.env.SF_JOURNAL_SUBTYPE_STAY_ID!,
+
+      // Core required
+      ExternalTransactionNumber: req.body.ExternalTransactionNumber,
+      ActivityDate: req.body.ActivityDate,           // ISO datetime
+      CurrencyIsoCode: req.body.CurrencyIsoCode,     // e.g., "USD"
+      TransactionAmount: req.body.TransactionAmount, // e.g., 500.00
+
+      // Details (optional)
+      MemberId: req.body.MemberId,                   // if you have Program Member Id
+      Channel: req.body.Channel,                     // picklist
+
+      // Payment Details
+      Payment_Type__c: req.body.Payment_Type__c,                 // "Cash"
+      PaymentMethod: req.body.PaymentMethod,                     // "Delta Card"
+      Cash_Paid__c: req.body.Cash_Paid__c,                       // 500.00
+      Total_Package_Amount__c: req.body.Total_Package_Amount__c, // 515.00
+      Booking_Tax__c: req.body.Booking_Tax__c,                   // 15.00
+
+      // Booking Details
+      LOB__c: req.body.LOB__c,
+      POSa__c: req.body.POSa__c,
+      Destination_Country__c: req.body.Destination_Country__c,
+      Destination_City__c: req.body.Destination_City__c,
+      Trip_Start_Date__c: req.body.Trip_Start_Date__c,   // date (YYYY-MM-DD)
+      Trip_End_Date__c: req.body.Trip_End_Date__c,       // date (YYYY-MM-DD)
+      BookingDate: req.body.BookingDate,                 // date (YYYY-MM-DD)
+      Length_of_Booking__c: req.body.Length_of_Booking__c,
+
+      // convenience mirror for easy SOQL/debug (optional)
+      External_ID__c: req.body.External_ID__c ?? req.body.ExternalTransactionNumber,
+    };
+
+    const result = await executeAccrualStayJournal(body);
+
+    if (!result.ok) {
+      return res.status(result.status).json({ status: "ERROR", ...result.body });
+    }
+    return res.status(201).json(result.body);
+  } catch (e: any) {
+    return res.status(400).json({ status: "INVALID_REQUEST", message: e.message });
+  }
+});
 
 // Existing member lookup
 async function fetchMemberRecord(program: string, input: string) {
@@ -474,9 +555,6 @@ router.post('/simulate', async (req, res) => {
     res.status(500).json({ message: msg });
   }
 });
-
-
-
 
 export default router;
 
