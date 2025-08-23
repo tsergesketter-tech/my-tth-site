@@ -301,9 +301,27 @@ export default function Checkout() {
   }
 
   return (
-    <div className="mx-auto max-w-5xl px-4 py-6 grid gap-6 md:grid-cols-3">
-      {/* Order summary */}
-      <aside className="md:col-span-1">
+    <div className="mx-auto max-w-5xl px-4 py-6">
+      {/* Demo Site Disclaimer */}
+      <div className="mb-6 rounded-xl bg-amber-50 border-2 border-amber-200 p-4 shadow-sm">
+        <div className="flex items-center gap-3">
+          <div className="flex-shrink-0">
+            <div className="text-2xl">⚠️</div>
+          </div>
+          <div>
+            <h3 className="font-bold text-amber-800 text-lg">Demo Site - Do Not Enter Real Information</h3>
+            <p className="text-amber-700 text-sm mt-1">
+              This is a <strong>Salesforce demo application</strong> for demonstration purposes only. 
+              Please do not enter real credit card numbers, personal information, or payment details. 
+              Use test data only.
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <div className="grid gap-6 md:grid-cols-3">
+        {/* Order summary */}
+        <aside className="md:col-span-1">
         <div className="rounded-2xl bg-white p-5 shadow">
           <div className="text-sm text-gray-600">{s.city}</div>
           <div className="font-semibold text-gray-900">{s.name}</div>
@@ -492,6 +510,7 @@ export default function Checkout() {
           </div>
         </form>
       </section>
+      </div>
     </div>
   );
 }

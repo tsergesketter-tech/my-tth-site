@@ -33,18 +33,46 @@ function mockLogin(
         reject(new Error("Invalid email or password"));
         return;
       }
-      // Fake JWT (don’t use in prod)
-      const token = btoa(
-        JSON.stringify({
-          sub: DEMO_USER.id,
-          email: DEMO_USER.email,
-          iat: Date.now(),
-        })
-      );
+      
+      // Create a more realistic token with 7-day expiration
+      const now = Date.now();
+      const expiresIn = 7 * 24 * 60 * 60 * 1000; // 7 days in milliseconds
+      
+      const tokenPayload = {
+        sub: DEMO_USER.id,
+        email: DEMO_USER.email,
+        iat: now,
+        exp: now + expiresIn,
+        type: 'demo'
+      };
+      
+      // Fake JWT (don't use in prod) - Base64 encoded for demo
+      const token = btoa(JSON.stringify(tokenPayload));
       const { password: _omit, ...user } = DEMO_USER;
+      
+      console.log('[Auth] Generated token expires at:', new Date(tokenPayload.exp));
       resolve({ token, user });
     }, 800);
   });
+}
+
+// Helper function to check if token is still valid
+function isTokenValid(token: string): boolean {
+  try {
+    const payload = JSON.parse(atob(token));
+    const now = Date.now();
+    
+    // Check if token has expiration and if it's still valid
+    if (payload.exp && now > payload.exp) {
+      console.log('[Auth] Token expired at:', new Date(payload.exp));
+      return false;
+    }
+    
+    return true;
+  } catch (error) {
+    console.error('[Auth] Invalid token format:', error);
+    return false;
+  }
 }
 
 // ---------- Auth context ----------
@@ -75,13 +103,50 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       localStorage.getItem(k) ?? sessionStorage.getItem(k);
     const token = read(STORAGE_TOKEN);
     const userRaw = read(STORAGE_USER);
+    
+    console.log('[Auth] Hydrating from storage:', { 
+      hasToken: !!token, 
+      hasUser: !!userRaw,
+      tokenSource: localStorage.getItem(STORAGE_TOKEN) ? 'localStorage' : 'sessionStorage',
+      tokenValue: token ? token.substring(0, 20) + '...' : null,
+      userValue: userRaw
+    });
+    
     if (token && userRaw) {
       try {
+        // Validate token before restoring session
+        if (!isTokenValid(token)) {
+          console.log('[Auth] Token is expired or invalid, clearing session');
+          localStorage.removeItem(STORAGE_TOKEN);
+          localStorage.removeItem(STORAGE_USER);
+          sessionStorage.removeItem(STORAGE_TOKEN);
+          sessionStorage.removeItem(STORAGE_USER);
+          setState({ status: "anonymous", user: null, token: null });
+          return;
+        }
+        
         const user = JSON.parse(userRaw) as AuthUser;
+        console.log('[Auth] Successfully restored user session:', user.name);
         setState({ status: "authenticated", user, token });
-      } catch {
-        // ignore bad JSON
+      } catch (error) {
+        console.error('[Auth] Failed to restore session:', error);
+        // Clear corrupted data
+        localStorage.removeItem(STORAGE_TOKEN);
+        localStorage.removeItem(STORAGE_USER);
+        sessionStorage.removeItem(STORAGE_TOKEN);
+        sessionStorage.removeItem(STORAGE_USER);
+        setState({ status: "anonymous", user: null, token: null });
       }
+    } else {
+      console.log('[Auth] No stored session found - reasons:', {
+        noToken: !token,
+        noUser: !userRaw,
+        localStorageToken: localStorage.getItem(STORAGE_TOKEN),
+        sessionStorageToken: sessionStorage.getItem(STORAGE_TOKEN),
+        localStorageUser: localStorage.getItem(STORAGE_USER),
+        sessionStorageUser: sessionStorage.getItem(STORAGE_USER)
+      });
+      setState({ status: "anonymous", user: null, token: null });
     }
   }, []);
 
@@ -89,16 +154,44 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return {
       state,
       async login(email, password, remember) {
+        console.log('[Auth] Login attempt:', { email, remember });
         setState((s) => ({ ...s, status: "authenticating" }));
-        const { token, user } = await mockLogin(email, password);
-        // Persist
-        const store = remember ? localStorage : sessionStorage;
-        store.setItem(STORAGE_TOKEN, token);
-        store.setItem(STORAGE_USER, JSON.stringify(user));
-        // Also clear from the other store to avoid confusion
-        (remember ? sessionStorage : localStorage).removeItem(STORAGE_TOKEN);
-        (remember ? sessionStorage : localStorage).removeItem(STORAGE_USER);
-        setState({ status: "authenticated", user, token });
+        
+        try {
+          const { token, user } = await mockLogin(email, password);
+          
+          // Persist based on remember preference
+          const store = remember ? localStorage : sessionStorage;
+          const storeName = remember ? 'localStorage' : 'sessionStorage';
+          
+          console.log('[Auth] Storing credentials in:', storeName, {
+            tokenLength: token.length,
+            userEmail: user.email
+          });
+          
+          store.setItem(STORAGE_TOKEN, token);
+          store.setItem(STORAGE_USER, JSON.stringify(user));
+          
+          // Also clear from the other store to avoid confusion
+          (remember ? sessionStorage : localStorage).removeItem(STORAGE_TOKEN);
+          (remember ? sessionStorage : localStorage).removeItem(STORAGE_USER);
+          
+          // Verify storage worked
+          const storedToken = store.getItem(STORAGE_TOKEN);
+          const storedUser = store.getItem(STORAGE_USER);
+          console.log('[Auth] Storage verification:', {
+            tokenStored: !!storedToken,
+            userStored: !!storedUser,
+            tokenMatches: storedToken === token
+          });
+          
+          setState({ status: "authenticated", user, token });
+          console.log('[Auth] Login successful for:', user.name);
+        } catch (error) {
+          console.error('[Auth] Login failed:', error);
+          setState((s) => ({ ...s, status: "anonymous" }));
+          throw error;
+        }
       },
       logout() {
         localStorage.removeItem(STORAGE_TOKEN);
@@ -252,9 +345,17 @@ export default function LoginCard({
       <h2 style={{ margin: 0, fontSize: 24, fontWeight: 700 }}>
         Sign in to your account
       </h2>
-      <p style={{ marginTop: 6, color: "#555" }}>
-        Use <code>{DEMO_USER.email}</code> / <code>{DEMO_USER.password}</code>
-      </p>
+      <div style={{ marginTop: 12, padding: 12, backgroundColor: "#fff3cd", border: "1px solid #ffeaa7", borderRadius: 8 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
+          <span style={{ fontSize: 18 }}>⚠️</span>
+          <strong style={{ color: "#856404" }}>Demo Site Notice</strong>
+        </div>
+        <p style={{ margin: 0, fontSize: 13, color: "#856404", lineHeight: 1.4 }}>
+          This is a Salesforce demo application. For demo purposes, use:<br/>
+          <strong>Email:</strong> {DEMO_USER.email}<br/>
+          <strong>Password:</strong> {DEMO_USER.password}
+        </p>
+      </div>
 
       <form onSubmit={handleSubmit} style={{ marginTop: 16 }}>
         <label style={{ display: "block", fontWeight: 600, marginBottom: 6 }}>

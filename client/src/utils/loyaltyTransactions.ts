@@ -1,40 +1,16 @@
 // client/src/utils/loyaltyTransactions.ts
 
+
+import type { AccrualStayRequest, RedemptionStayRequest } from "../../../shared/loyaltyTypes";
+
 /**
  * --------------------------
  *  ACCRUAL — Stay (UI subset)
  * --------------------------
+ * 
+
  */
-export type AccrualStayRequest = {
-  ExternalTransactionNumber: string;        // booking/order id (idempotency)
-  ActivityDate: string;                     // ISO datetime
-  CurrencyIsoCode: string;                  // "USD"
-  TransactionAmount: number;                // total cash
 
-  // Details
-  MemberId?: string;
-  Channel?: string;                         // "Web"
-
-  // Payment details
-  Payment_Type__c?: string;                 // "Cash"
-  PaymentMethod?: string;                   // "Delta Card"
-  Cash_Paid__c?: number;                    // total - taxes
-  Total_Package_Amount__c?: number;         // total
-  Booking_Tax__c?: number;                  // taxes
-
-  // Booking details
-  LOB__c?: string;                          // "Hotel"
-  POSa__c?: string;                         // "US"
-  Destination_Country__c?: string;          // "US"
-  Destination_City__c?: string;             // "ATL"
-  Trip_Start_Date__c?: string;              // YYYY-MM-DD
-  Trip_End_Date__c?: string;                // YYYY-MM-DD
-  BookingDate?: string;                     // YYYY-MM-DD
-  Length_of_Booking__c?: number;
-
-  // convenience mirror
-  External_ID__c?: string;
-};
 
 export async function postStayAccrual(payload: AccrualStayRequest) {
   const res = await fetch("/api/loyalty/journals/accrual-stay", {
@@ -104,30 +80,6 @@ export function buildAccrualFromCheckout(opts: {
  * Minimal, UI-friendly subset for “Use miles/points”.
  * Server will force JournalType=Redemption, Subtype=Stay.
  */
-export type RedemptionStayRequest = {
-  ExternalTransactionNumber: string;        // idempotency
-  ActivityDate: string;                     // ISO datetime
-  MemberId?: string;
-
-  // How many points to redeem (custom field in your schema)
-  Points_to_Redeem__c: number;
-
-  // Optional booking context (mirrors accrual shape if useful)
-  LOB__c?: string;                          // "Hotel"
-  POSa__c?: string;                         // "US"
-  Destination_Country__c?: string;          // "US"
-  Destination_City__c?: string;             // "ATL"
-  Trip_Start_Date__c?: string;              // YYYY-MM-DD
-  Trip_End_Date__c?: string;                // YYYY-MM-DD
-  BookingDate?: string;                     // YYYY-MM-DD
-  Length_of_Booking__c?: number;
-
-  // Optional note
-  Comment?: string;
-
-  // convenience mirror
-  External_ID__c?: string;
-};
 
 export async function postStayRedemption(payload: RedemptionStayRequest) {
   const res = await fetch("/api/loyalty/journals/redemption-stay", {

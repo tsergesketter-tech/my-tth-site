@@ -2,13 +2,28 @@
 
 export type Voucher = {
   id: string;
-  type: "E-Cert" | "Upgrade" | "Travel Bank" | "Companion";
+  type: string; // Now flexible - uses voucherDefinition from Salesforce (e.g., "Ajio", "10% Off Booking")
   code: string;
-  value?: number; // in USD for e-certs / travel bank
+  value?: number; // remaining value, face value, or percentage
   currency?: string;
   expiresOn: string; // ISO
   status: "Active" | "Used" | "Expired";
   notes?: string;
+  // Salesforce-specific fields
+  originalType?: string; // Salesforce internal type (e.g., "FixedValue")
+  voucherDefinition?: string; // Voucher definition name from Salesforce
+  _raw?: {
+    programId?: string;
+    issuedDate?: string;
+    lastModifiedDate?: string;
+    effectiveDate?: string;
+    expirationDateTime?: string;
+    redeemedValue?: number;
+    remainingValue?: number;
+    faceValue?: number;
+    isVoucherPartiallyRedeemable?: boolean;
+    voucherNumber?: string;
+  };
 };
 
 export type Badge = {
