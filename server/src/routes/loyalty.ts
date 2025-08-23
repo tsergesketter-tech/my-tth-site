@@ -2,9 +2,194 @@
 import { Router } from 'express';
 import { sfFetch } from '../salesforce/sfFetch';
 import { z } from "zod";
-import { executeAccrualStayJournal } from "../salesforce/journals";
+import { executeAccrualStayJournal, AccrualStayJournal } from "../salesforce/journals";
+import type { AccrualStayRequest } from "../../../shared/loyaltyTypes";
+
+
 
 const router = Router();
+
+
+console.log("[loyalty] router loaded");
+router.use((req, _res, next) => {
+  console.log(`[loyalty] ${req.method} ${req.path}`);
+  next();
+});
+
+router.get("/__ping", (_req, res) => {
+  res.json({ ok: true, at: "/api/loyalty/__ping" });
+});
+
+// GET /api/loyalty/vouchers - Fetch member vouchers from Salesforce
+router.get("/vouchers", async (req, res) => {
+  console.log(`[loyalty/vouchers] GET - member: ${req.session?.member?.membershipNumber}`);
+  
+  try {
+    const { membershipNumber, memberId, program } = sessionMembership(req);
+    
+    if (!membershipNumber) {
+      return res.status(401).json({ error: "Member session required" });
+    }
+
+    // Try different Salesforce Loyalty API patterns - the exact endpoint varies
+    const programId = process.env.SF_LOYALTY_PROGRAM;
+    if (!programId) {
+      return res.status(500).json({ error: "Loyalty program not configured" });
+    }
+
+    // Try multiple endpoint patterns based on Salesforce documentation variations
+    const endpointAttempts = [
+      `/services/data/v60.0/connect/loyalty/programs/${encodeURIComponent(programId)}/members/${membershipNumber}/vouchers`,
+      `/services/data/v58.0/connect/loyalty/programs/${encodeURIComponent(programId)}/members/${membershipNumber}/vouchers`,
+      `/services/data/v60.0/loyalty/programs/${encodeURIComponent(programId)}/members/${membershipNumber}/vouchers`,
+      `/services/data/v58.0/loyalty/programs/${encodeURIComponent(programId)}/members/${membershipNumber}/vouchers`,
+      // Try with member ID instead of membership number if configured
+      ...(memberId ? [
+        `/services/data/v60.0/connect/loyalty/programs/${encodeURIComponent(programId)}/members/${memberId}/vouchers`,
+        `/services/data/v58.0/connect/loyalty/programs/${encodeURIComponent(programId)}/members/${memberId}/vouchers`
+      ] : [])
+    ];
+
+    let successfulResponse: Response | null = null;
+    let lastError: string | undefined;
+    
+    for (const apiPath of endpointAttempts) {
+      console.log(`[loyalty/vouchers] Trying SF API: ${apiPath}`);
+      
+      const response = await sfFetch(apiPath, {
+        method: "GET",
+      });
+      
+      if (response.ok) {
+        console.log(`[loyalty/vouchers] Success with: ${apiPath}`);
+        successfulResponse = response;
+        break;
+      } else {
+        const errorText = await response.text();
+        console.warn(`[loyalty/vouchers] Failed ${response.status} for: ${apiPath} - ${errorText}`);
+        lastError = errorText;
+      }
+    }
+    
+    if (!successfulResponse) {
+      console.error(`[loyalty/vouchers] All API endpoints failed. Last error:`, lastError);
+      return res.status(404).json({ 
+        error: "Vouchers endpoint not found - check Salesforce API configuration",
+        details: lastError,
+        attemptedEndpoints: endpointAttempts
+      });
+    }
+
+    const data = await successfulResponse.json();
+    
+    // Transform Salesforce voucher data to match our UI format
+    const transformedVouchers = data.vouchers?.map((sfVoucher: any) => ({
+      id: sfVoucher.voucherId || sfVoucher.id,
+      // Use voucherDefinition as the main type display, fallback to mapped type
+      type: sfVoucher.voucherDefinition || mapVoucherType(sfVoucher.voucherType || sfVoucher.type),
+      code: sfVoucher.voucherCode || sfVoucher.code,
+      value: sfVoucher.remainingValue ?? sfVoucher.faceValue ?? sfVoucher.voucherValue,
+      currency: sfVoucher.currencyIsoCode || "USD",
+      expiresOn: sfVoucher.expirationDate || sfVoucher.expiryDate,
+      status: mapVoucherStatus(sfVoucher.status),
+      notes: sfVoucher.description || sfVoucher.reason,
+      // Keep original Salesforce fields for reference
+      originalType: sfVoucher.voucherType || sfVoucher.type,
+      voucherDefinition: sfVoucher.voucherDefinition,
+      // Additional SF fields for reference
+      _raw: {
+        programId: sfVoucher.loyaltyProgramId,
+        issuedDate: sfVoucher.issuedDate,
+        lastModifiedDate: sfVoucher.lastModifiedDate,
+        effectiveDate: sfVoucher.effectiveDate,
+        expirationDateTime: sfVoucher.expirationDateTime,
+        redeemedValue: sfVoucher.redeemedValue,
+        remainingValue: sfVoucher.remainingValue,
+        isVoucherPartiallyRedeemable: sfVoucher.isVoucherPartiallyRedeemable,
+        voucherNumber: sfVoucher.voucherNumber,
+      }
+    })) || [];
+
+    res.json({
+      vouchers: transformedVouchers,
+      totalCount: data.totalCount || transformedVouchers.length,
+      _meta: {
+        membershipNumber,
+        program,
+        fetchedAt: new Date().toISOString(),
+        sourceApi: "salesforce-connect"
+      }
+    });
+
+  } catch (error: any) {
+    console.error(`[loyalty/vouchers] Error:`, error);
+    res.status(500).json({ 
+      error: "Internal server error fetching vouchers",
+      message: error.message 
+    });
+  }
+});
+
+// Helper function to map Salesforce voucher types to our UI types
+function mapVoucherType(sfType: string): "E-Cert" | "Upgrade" | "Travel Bank" | "Companion" | "Discount" | "Other" {
+  const typeMap: Record<string, "E-Cert" | "Upgrade" | "Travel Bank" | "Companion" | "Discount" | "Other"> = {
+    // Electronic Certificates
+    "Electronic Certificate": "E-Cert",
+    "E-Certificate": "E-Cert", 
+    "ECert": "E-Cert",
+    "Certificate": "E-Cert",
+    
+    // Upgrades
+    "Upgrade": "Upgrade",
+    "Upgrade Certificate": "Upgrade",
+    
+    // Travel Credits
+    "Travel Credit": "Travel Bank",
+    "Travel Bank": "Travel Bank",
+    
+    // Companion Certificates
+    "Companion Certificate": "Companion",
+    "Companion": "Companion",
+    
+    // Discount vouchers
+    "10% Off Booking": "Discount",
+    "Discount": "Discount",
+    "Percentage Off": "Discount",
+    "Dollar Off": "Discount",
+    "Booking Discount": "Discount",
+    "Rate Discount": "Discount",
+  };
+  
+  // Check for percentage-based discounts
+  if (sfType.toLowerCase().includes("% off") || sfType.toLowerCase().includes("percent off")) {
+    return "Discount";
+  }
+  
+  // Check for dollar amount discounts
+  if (sfType.toLowerCase().includes("off") && (sfType.includes("$") || sfType.toLowerCase().includes("dollar"))) {
+    return "Discount";
+  }
+  
+  return typeMap[sfType] || "Other";
+}
+
+// Helper function to map Salesforce voucher status to our UI status  
+function mapVoucherStatus(sfStatus: string): "Active" | "Used" | "Expired" {
+  const statusMap: Record<string, "Active" | "Used" | "Expired"> = {
+    "Active": "Active",
+    "Available": "Active", 
+    "Issued": "Active",
+    "Valid": "Active",
+    "Used": "Used",
+    "Redeemed": "Used",
+    "Consumed": "Used", 
+    "Expired": "Expired",
+    "Invalid": "Expired",
+    "Cancelled": "Expired"
+  };
+  
+  return statusMap[sfStatus] || "Active";
+}
 
 function sessionMembership(req: import('express').Request) {
   const m = req.session?.member;
@@ -23,23 +208,27 @@ function prefer<T>(...vals: (T | undefined | null)[]): T | undefined {
 const StayJournalSchema = z.object({
   // idempotency + member
   ExternalTransactionNumber: z.string().min(6),
-  MemberId: z.string().optional(),          // if you have it (else rely on endpoint resolution rules)
+  MemberId: z.string().optional(),
 
-  // required:
-  ActivityDate: z.string(),                 // ISO
+  // required
+  ActivityDate: z.string(),                 // ISO string
   CurrencyIsoCode: z.string().min(3),
   TransactionAmount: z.number().positive(),
 
-  // optional hotel fields you gave in the schema:
+  // optional UI subset
   Channel: z.string().optional(),
   PaymentMethod: z.string().optional(),
   Payment_Type__c: z.string().optional(),
   Cash_Paid__c: z.number().optional(),
   Total_Package_Amount__c: z.number().optional(),
   Booking_Tax__c: z.number().optional(),
+
   BookingDate: z.string().optional(),       // YYYY-MM-DD
-  StartDate: z.string().optional(),
+  Trip_Start_Date__c: z.string().optional(),// YYYY-MM-DD
+  Trip_End_Date__c: z.string().optional(),  // YYYY-MM-DD
+  StartDate: z.string().optional(),         // keep if you still post these
   EndDate: z.string().optional(),
+
   Length_of_Booking__c: z.number().optional(),
   Length_of_Stay__c: z.number().optional(),
   Destination_Country__c: z.string().optional(),
@@ -48,54 +237,63 @@ const StayJournalSchema = z.object({
   POSa__c: z.string().optional(),
   Hotel_Superbrand__c: z.string().optional(),
   Comment: z.string().optional(),
+  External_ID__c: z.string().optional(),
 });
 
-router.post("/api/loyalty/journals/accrual-stay", async (req, res) => {
+const ALLOWED_KEYS = new Set([
+  "ExternalTransactionNumber",
+  "ActivityDate",
+  "CurrencyIsoCode",
+  "TransactionAmount",
+
+  "MemberId",
+  "Channel",
+
+  "Payment_Type__c",
+  "PaymentMethod",
+  "Cash_Paid__c",
+  "Total_Package_Amount__c",
+  "Booking_Tax__c",
+
+  "BookingDate",
+  "Trip_Start_Date__c",
+  "Trip_End_Date__c",
+  "Length_of_Booking__c",
+  "Destination_Country__c",
+  "Destination_City__c",
+  "LOB__c",
+  "POSa__c",
+
+  "Comment",
+  "External_ID__c",
+]);
+
+router.post("/journals/accrual-stay", async (req, res) => {
   try {
-    const body: AccrualStayJournal = {
-      // Force Accrual / Stay
-      JournalTypeId: process.env.SF_JOURNAL_TYPE_ACCRUAL_ID!,
-      JournalSubTypeId: process.env.SF_JOURNAL_SUBTYPE_STAY_ID!,
+    const input = req.body as any;
 
-      // Core required
-      ExternalTransactionNumber: req.body.ExternalTransactionNumber,
-      ActivityDate: req.body.ActivityDate,           // ISO datetime
-      CurrencyIsoCode: req.body.CurrencyIsoCode,     // e.g., "USD"
-      TransactionAmount: req.body.TransactionAmount, // e.g., 500.00
+    // Use interchangeable "Name" fields instead of Ids:
+    const body = {
+      ...input,
 
-      // Details (optional)
-      MemberId: req.body.MemberId,                   // if you have Program Member Id
-      Channel: req.body.Channel,                     // picklist
+      // Force journal classification
+      JournalTypeName: "Accrual",
+      JournalSubTypeName: "Stay",
 
-      // Payment Details
-      Payment_Type__c: req.body.Payment_Type__c,                 // "Cash"
-      PaymentMethod: req.body.PaymentMethod,                     // "Delta Card"
-      Cash_Paid__c: req.body.Cash_Paid__c,                       // 500.00
-      Total_Package_Amount__c: req.body.Total_Package_Amount__c, // 515.00
-      Booking_Tax__c: req.body.Booking_Tax__c,                   // 15.00
-
-      // Booking Details
-      LOB__c: req.body.LOB__c,
-      POSa__c: req.body.POSa__c,
-      Destination_Country__c: req.body.Destination_Country__c,
-      Destination_City__c: req.body.Destination_City__c,
-      Trip_Start_Date__c: req.body.Trip_Start_Date__c,   // date (YYYY-MM-DD)
-      Trip_End_Date__c: req.body.Trip_End_Date__c,       // date (YYYY-MM-DD)
-      BookingDate: req.body.BookingDate,                 // date (YYYY-MM-DD)
-      Length_of_Booking__c: req.body.Length_of_Booking__c,
-
-      // convenience mirror for easy SOQL/debug (optional)
-      External_ID__c: req.body.External_ID__c ?? req.body.ExternalTransactionNumber,
+      // convenience mirror
+      External_ID__c: input.External_ID__c ?? input.ExternalTransactionNumber,
     };
 
-    const result = await executeAccrualStayJournal(body);
-
+    const result = await executeAccrualStayJournal(body as any);
     if (!result.ok) {
       return res.status(result.status).json({ status: "ERROR", ...result.body });
     }
     return res.status(201).json(result.body);
   } catch (e: any) {
-    return res.status(400).json({ status: "INVALID_REQUEST", message: e.message });
+    return res.status(400).json({
+      status: "INVALID_REQUEST",
+      message: e?.message || String(e),
+    });
   }
 });
 

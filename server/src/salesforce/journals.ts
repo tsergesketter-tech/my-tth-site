@@ -1,79 +1,101 @@
 // server/src/salesforce/journals.ts
 // ----------------------------------------------------------------------------
-// Posts Transaction Journals to Salesforce Loyalty "Journal Execution" endpoint
+// Post Transaction Journals to Salesforce Loyalty (Realtime endpoint)
 // Uses getClientCredentialsToken() from auth.ts to manage OAuth tokens
 // ----------------------------------------------------------------------------
 
 import { getClientCredentialsToken } from "./auth";
 
-/**
- * Shape for Accrual / Stay journals, matching Transaction Journal schema fields.
- */
-export type AccrualStayJournal = {
-  // Identity / control
-  ExternalTransactionNumber: string; // idempotency key
+const DEFAULT_MEMBERSHIP_NUMBER = process.env.DEFAULT_MEMBERSHIP_NUMBER || "DL12345";
+const DEFAULT_SUBTYPE = process.env.SF_JOURNAL_SUBTYPE_NAME || "Hotel";
+const DEFAULT_TYPE_ACCRUAL = process.env.SF_JOURNAL_TYPE_NAME_ACCRUAL || "Accrual";
+const DEFAULT_TYPE_REDEMPTION = process.env.SF_JOURNAL_TYPE_NAME_REDEMPTION || "Redemption";
+
+// Fields that should always be strings for compatibility
+const STRINGIFY_FIELDS = ["Cash_Paid__c", "Length_of_Booking__c", "Length_of_Stay__c"];
+
+export type BaseStayJournal = {
+  ExternalTransactionNumber: string;
   MemberId?: string;
-  LoyaltyProgramId?: string;
-
-  // Journal type/subtype (Accrual / Stay enforced by caller)
-  JournalTypeId: string;
-  JournalSubTypeId: string;
-
-  // Core dates & amounts
-  ActivityDate: string;              // ISO datetime
-  CurrencyIsoCode: string;           // e.g. "USD"
-  TransactionAmount: number;         // e.g. 500.00
-
-  // Booking / hotel details
+  ActivityDate: string;
+  CurrencyIsoCode: string;
+  TransactionAmount?: number;
   Channel?: string;
   PaymentMethod?: string;
   Payment_Type__c?: string;
-  Cash_Paid__c?: number;
+  Cash_Paid__c?: string;
   Total_Package_Amount__c?: number;
   Booking_Tax__c?: number;
-
-  BookingDate?: string;              // YYYY-MM-DD
-  StartDate?: string;                // ISO datetime
-  EndDate?: string;                  // ISO datetime
-  Length_of_Booking__c?: number;
-  Length_of_Stay__c?: number;
-
+  BookingDate?: string;
+  StartDate?: string;
+  EndDate?: string;
+  Length_of_Booking__c?: string;
+  Length_of_Stay__c?: string;
   Destination_Country__c?: string;
   Destination_City__c?: string;
   LOB__c?: string;
   POSa__c?: string;
   Hotel_Superbrand__c?: string;
-
   Comment?: string;
   External_ID__c?: string;
-
-  // Catch-all for any other fields in your schema
   [key: string]: unknown;
+};
+
+export type AccrualStayJournal = BaseStayJournal & {
+  journalTypeName?: "Accrual" | string;
+  journalSubTypeName?: string;
+  TransactionAmount: number;
+  MembershipNumber?: string;
+};
+
+export type RedemptionStayJournal = BaseStayJournal & {
+  journalTypeName?: "Redemption" | string;
+  journalSubTypeName?: string;
+  Points_to_Redeem__c: number;
+  MembershipNumber?: string;
 };
 
 export type JournalExecutionResult =
   | { ok: true; status: number; body: any }
   | { ok: false; status: number; body: any };
 
-/**
- * Execute an Accrual / Stay journal by calling the Salesforce Connect endpoint.
- * Automatically handles OAuth via getClientCredentialsToken().
- */
-export async function executeAccrualStayJournal(
-  body: AccrualStayJournal
+async function postRealtimeJournals(
+  journals: any[],
+  opts?: { isSimulation?: boolean; programName?: string; apiVersion?: string }
 ): Promise<JournalExecutionResult> {
   const { access_token, instance_url } = await getClientCredentialsToken();
 
-  const apiVersion = process.env.SF_API_VERSION || "v64.0";
-  const programName = process.env.SF_LOYALTY_PROGRAM!;
-  const url = `${instance_url}/services/data/${apiVersion}/connect/loyalty/programs/${encodeURIComponent(
-    programName
-  )}/journal-execution`;
+  const apiVersion = opts?.apiVersion || process.env.SF_API_VERSION || "v64.0";
+  const programName = opts?.programName || process.env.SF_LOYALTY_PROGRAM;
+
+  if (!programName) {
+    return {
+      ok: false,
+      status: 400,
+      body: { message: "Missing SF_LOYALTY_PROGRAM env var" },
+    };
+  }
+
+  const url = `${instance_url}/services/data/${apiVersion}/connect/realtime/loyalty/programs/${encodeURIComponent(programName)}`;
+
+  const normalized = journals.map((j) => {
+    const out: any = { ...j };
+    out.JournalTypeName = out.JournalTypeName || out.journalTypeName || DEFAULT_TYPE_ACCRUAL;
+    out.JournalSubTypeName = DEFAULT_SUBTYPE;
+    delete out.journalTypeName;
+    delete out.journalSubTypeName;
+    STRINGIFY_FIELDS.forEach((f) => {
+      if (out[f] != null && typeof out[f] !== "string") out[f] = String(out[f]);
+    });
+    return out;
+  });
 
   const payload = {
-    ...body,
-    External_ID__c: body.External_ID__c ?? body.ExternalTransactionNumber,
+    transactionJournals: normalized,
+    runSetting: { isSimulation: !!opts?.isSimulation },
   };
+
+  console.log("POST journals →", JSON.stringify(payload, null, 2));
 
   const res = await fetch(url, {
     method: "POST",
@@ -87,83 +109,109 @@ export async function executeAccrualStayJournal(
   let json: any = {};
   try {
     json = await res.json();
-  } catch {
-    // non-JSON response
-  }
+  } catch {}
 
-  if (!res.ok) {
-    return { ok: false, status: res.status, body: json };
-  }
+  if (!res.ok) return { ok: false, status: res.status, body: json };
   return { ok: true, status: res.status, body: json };
 }
 
-/**
- * Optional builder: construct a journal body from typical checkout fields.
- */
-export function buildStayJournalBody(
-  input: {
-    externalId: string;
-    memberId?: string;
-    accrualAmount: number;
-    currency: string;
-    activityDateISO?: string;
+export async function executeAccrualStayJournal(
+  body: AccrualStayJournal
+): Promise<JournalExecutionResult> {
+  const membershipNumber = body.MembershipNumber || DEFAULT_MEMBERSHIP_NUMBER;
+  const base: AccrualStayJournal = {
+    ...body,
+    External_ID__c: body.External_ID__c ?? body.ExternalTransactionNumber,
+    ActivityDate: body.ActivityDate || new Date().toISOString(),
+    MembershipNumber: membershipNumber,
+  };
 
-    channel?: string;
-    paymentMethod?: string;
-    paymentType?: string;
-    cashPaid?: number;
-    packageTotal?: number;
-    bookingTax?: number;
+  const journal: any = {
+    ...base,
+    JournalTypeName: (base as any).JournalTypeName || (base as any).journalTypeName || DEFAULT_TYPE_ACCRUAL,
+    JournalSubTypeName: (base as any).JournalSubTypeName || DEFAULT_SUBTYPE,
+  };
+  delete journal.journalTypeName;
+  delete journal.journalSubTypeName;
+  STRINGIFY_FIELDS.forEach((f) => {
+    if (journal[f] != null && typeof journal[f] !== "string") journal[f] = String(journal[f]);
+  });
 
-    bookingDate?: string;
-    startDateISO?: string;
-    endDateISO?: string;
-    lengthOfBooking?: number;
-    lengthOfStay?: number;
+  return postRealtimeJournals([journal], { isSimulation: false });
+}
 
-    destCountry?: string;
-    destCity?: string;
-    lob?: string;
-    posa?: string;
-    superbrand?: string;
+export async function executeRedemptionStayJournal(
+  body: RedemptionStayJournal
+): Promise<JournalExecutionResult> {
+  const membershipNumber = body.MembershipNumber || DEFAULT_MEMBERSHIP_NUMBER;
+  const base: RedemptionStayJournal = {
+    ...body,
+    External_ID__c: body.External_ID__c ?? body.ExternalTransactionNumber,
+    ActivityDate: body.ActivityDate || new Date().toISOString(),
+    MembershipNumber: membershipNumber,
+  };
 
-    comment?: string;
-  },
-  cfg: {
-    journalTypeAccrualId: string;
-    journalSubTypeStayId: string;
-  }
-): AccrualStayJournal {
+  const journal: any = {
+    ...base,
+    JournalTypeName: (base as any).JournalTypeName || (base as any).journalTypeName || DEFAULT_TYPE_REDEMPTION,
+    JournalSubTypeName: (base as any).JournalSubTypeName || DEFAULT_SUBTYPE,
+  };
+  delete journal.journalTypeName;
+  delete journal.journalSubTypeName;
+  STRINGIFY_FIELDS.forEach((f) => {
+    if (journal[f] != null && typeof journal[f] !== "string") journal[f] = String(journal[f]);
+  });
+
+  return postRealtimeJournals([journal], { isSimulation: false });
+}
+
+export function buildAccrualFromCheckout(input: {
+  externalId: string;
+  currency: string;
+  total: number;
+  taxes?: number;
+  startDateISO?: string;
+  endDateISO?: string;
+  nights?: number;
+  city?: string;
+  posa?: string;
+  memberId?: string;
+  membershipNumber?: string;
+  channel?: string;
+  paymentMethod?: string;
+  paymentType?: string;
+  destCountry?: string;
+  bookingDate?: string;
+  comment?: string;
+}): AccrualStayJournal {
+  const cashPaid =
+    typeof input.taxes === "number" ? +(input.total - input.taxes).toFixed(2) : undefined;
+
   return {
     ExternalTransactionNumber: input.externalId,
-    MemberId: input.memberId,
-    JournalTypeId: cfg.journalTypeAccrualId,
-    JournalSubTypeId: cfg.journalSubTypeStayId,
-
-    ActivityDate: input.activityDateISO ?? new Date().toISOString(),
+    External_ID__c: input.externalId,
+    ActivityDate: new Date().toISOString(),
     CurrencyIsoCode: input.currency,
-    TransactionAmount: input.accrualAmount,
-
-    Channel: input.channel,
+    TransactionAmount: input.total,
+    MemberId: input.memberId,
+    MembershipNumber: input.membershipNumber || DEFAULT_MEMBERSHIP_NUMBER,
+    Channel: input.channel ?? "Web",
     PaymentMethod: input.paymentMethod,
-    Payment_Type__c: input.paymentType,
-    Cash_Paid__c: input.cashPaid,
-    Total_Package_Amount__c: input.packageTotal,
-    Booking_Tax__c: input.bookingTax,
-
-    BookingDate: input.bookingDate,
+    Payment_Type__c: input.paymentType ?? "Cash",
+    Cash_Paid__c: cashPaid != null ? String(cashPaid) : undefined,
+    Total_Package_Amount__c: input.total,
+    Booking_Tax__c: input.taxes,
+    LOB__c: "Hotel",
+    POSa__c: input.posa,
+    Destination_City__c: input.city,
+    Destination_Country__c: input.destCountry,
     StartDate: input.startDateISO,
     EndDate: input.endDateISO,
-    Length_of_Booking__c: input.lengthOfBooking,
-    Length_of_Stay__c: input.lengthOfStay,
-
-    Destination_Country__c: input.destCountry,
-    Destination_City__c: input.destCity,
-    LOB__c: input.lob,
-    POSa__c: input.posa,
-    Hotel_Superbrand__c: input.superbrand,
-
+    Length_of_Booking__c: input.nights != null ? String(input.nights) : undefined,
+    Length_of_Stay__c: input.nights != null ? String(input.nights) : undefined,
+    BookingDate: input.bookingDate ?? new Date().toISOString().slice(0, 10),
     Comment: input.comment,
-    External_ID__c: input.externalId,
+    journalTypeName: DEFAULT_TYPE_ACCRUAL,
+    journalSubTypeName: DEFAULT_SUBTYPE,
   };
 }
