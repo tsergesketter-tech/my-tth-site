@@ -1,9 +1,25 @@
 // routes/loyalty.ts
-import { Router } from 'express';
+import { Router, Request } from 'express';
 import { sfFetch } from '../salesforce/sfFetch';
-import { z } from "zod";
-import { executeAccrualStayJournal, AccrualStayJournal } from "../salesforce/journals";
-import type { AccrualStayRequest } from "../../../shared/loyaltyTypes";
+import { executeAccrualStayJournal, executeRedemptionStayJournal, AccrualStayJournal } from "../salesforce/journals";
+import { createBooking, getBookingByExternalTransactionNumber, updateLineItemJournalIds } from "../data/bookings";
+import { linkJournalToBookingLineItem } from "../salesforce/journalBookingLink";
+import type { CreateBookingRequest } from "../../../shared/bookingTypes";
+import type { AccrualStayRequest, RedemptionStayRequest } from "../../../shared/loyaltyTypes";
+
+// Add this augmentation to fix the session property error
+declare module 'express-serve-static-core' {
+  interface Request {
+    session?: {
+      member?: {
+        membershipNumber?: string;
+        memberId?: string;
+        program?: string;
+      };
+      [key: string]: any;
+    };
+  }
+}
 
 
 
@@ -205,82 +221,80 @@ function prefer<T>(...vals: (T | undefined | null)[]): T | undefined {
   return vals.find(v => v !== undefined && v !== null) as T | undefined;
 }
 
-const StayJournalSchema = z.object({
-  // idempotency + member
-  ExternalTransactionNumber: z.string().min(6),
-  MemberId: z.string().optional(),
-
-  // required
-  ActivityDate: z.string(),                 // ISO string
-  CurrencyIsoCode: z.string().min(3),
-  TransactionAmount: z.number().positive(),
-
-  // optional UI subset
-  Channel: z.string().optional(),
-  PaymentMethod: z.string().optional(),
-  Payment_Type__c: z.string().optional(),
-  Cash_Paid__c: z.number().optional(),
-  Total_Package_Amount__c: z.number().optional(),
-  Booking_Tax__c: z.number().optional(),
-
-  BookingDate: z.string().optional(),       // YYYY-MM-DD
-  Trip_Start_Date__c: z.string().optional(),// YYYY-MM-DD
-  Trip_End_Date__c: z.string().optional(),  // YYYY-MM-DD
-  StartDate: z.string().optional(),         // keep if you still post these
-  EndDate: z.string().optional(),
-
-  Length_of_Booking__c: z.number().optional(),
-  Length_of_Stay__c: z.number().optional(),
-  Destination_Country__c: z.string().optional(),
-  Destination_City__c: z.string().optional(),
-  LOB__c: z.string().optional(),
-  POSa__c: z.string().optional(),
-  Hotel_Superbrand__c: z.string().optional(),
-  Comment: z.string().optional(),
-  External_ID__c: z.string().optional(),
-});
-
-const ALLOWED_KEYS = new Set([
-  "ExternalTransactionNumber",
-  "ActivityDate",
-  "CurrencyIsoCode",
-  "TransactionAmount",
-
-  "MemberId",
-  "Channel",
-
-  "Payment_Type__c",
-  "PaymentMethod",
-  "Cash_Paid__c",
-  "Total_Package_Amount__c",
-  "Booking_Tax__c",
-
-  "BookingDate",
-  "Trip_Start_Date__c",
-  "Trip_End_Date__c",
-  "Length_of_Booking__c",
-  "Destination_Country__c",
-  "Destination_City__c",
-  "LOB__c",
-  "POSa__c",
-
-  "Comment",
-  "External_ID__c",
-]);
 
 router.post("/journals/accrual-stay", async (req, res) => {
   try {
     const input = req.body as any;
+    const externalTransactionNumber = input.ExternalTransactionNumber;
+    
+    if (!externalTransactionNumber) {
+      return res.status(400).json({
+        status: "INVALID_REQUEST",
+        message: "ExternalTransactionNumber is required",
+      });
+    }
 
-    // Use interchangeable "Name" fields instead of Ids:
+    // 1. Check if booking already exists, create if not
+    let booking = await getBookingByExternalTransactionNumber(externalTransactionNumber);
+    let lineItemId: string;
+    
+    if (!booking) {
+      // Create booking record
+      const bookingRequest: CreateBookingRequest = {
+        externalTransactionNumber,
+        memberId: input.MemberId,
+        membershipNumber: req.session?.member?.membershipNumber,
+        
+        bookingDate: input.BookingDate || new Date().toISOString().split('T')[0],
+        tripStartDate: input.Trip_Start_Date__c || input.StartDate,
+        tripEndDate: input.Trip_End_Date__c || input.EndDate,
+        
+        channel: input.Channel,
+        posa: input.POSa__c,
+        paymentMethod: input.PaymentMethod,
+        
+        lineItems: [{
+          lob: "HOTEL",
+          cashAmount: input.TransactionAmount,
+          currency: input.CurrencyIsoCode,
+          taxes: input.Booking_Tax__c,
+          productName: `${input.Destination_City__c || 'Hotel'} Stay`,
+          destinationCity: input.Destination_City__c,
+          destinationCountry: input.Destination_Country__c,
+          startDate: input.Trip_Start_Date__c || input.StartDate,
+          endDate: input.Trip_End_Date__c || input.EndDate,
+          nights: input.Length_of_Booking__c ? Number(input.Length_of_Booking__c) : undefined,
+        }],
+        
+        createdBy: 'loyalty-journal-api',
+      };
+      
+      booking = await createBooking(bookingRequest);
+      lineItemId = booking.lineItems[0].id;
+      console.log(`[loyalty/accrual-stay] Created booking ${booking.id} with line item ${lineItemId}`);
+    } else {
+      // Find or create hotel line item
+      const hotelItem = booking.lineItems.find(item => item.lob === "HOTEL" && item.status === "ACTIVE");
+      if (hotelItem) {
+        lineItemId = hotelItem.id;
+      } else {
+        // This is tricky - would need to add new line item to existing booking
+        // For now, just use the first line item
+        lineItemId = booking.lineItems[0]?.id;
+        if (!lineItemId) {
+          return res.status(400).json({
+            status: "INVALID_REQUEST",
+            message: "No valid line items found in existing booking",
+          });
+        }
+      }
+    }
+
+    // 2. Build and post journal to Salesforce
     const body = {
       ...input,
-
-      // Force journal classification
       JournalTypeName: "Accrual",
-      JournalSubTypeName: "Stay",
-
-      // convenience mirror
+      JournalSubTypeName: "Hotel",
       External_ID__c: input.External_ID__c ?? input.ExternalTransactionNumber,
     };
 
@@ -288,8 +302,183 @@ router.post("/journals/accrual-stay", async (req, res) => {
     if (!result.ok) {
       return res.status(result.status).json({ status: "ERROR", ...result.body });
     }
-    return res.status(201).json(result.body);
+    
+    // 3. Extract journal ID from Salesforce response and update booking
+    const journalId = result.body?.processResult?.transactionJournalResult?.[0]?.id ||
+                     result.body?.transactionJournals?.[0]?.transactionJournalId || 
+                     result.body?.transactionJournalId ||
+                     result.body?.journalId;
+    
+    if (journalId) {
+      await updateLineItemJournalIds(booking.id, lineItemId, { accrualJournalId: journalId });
+      console.log(`[loyalty/accrual-stay] Updated booking ${booking.id} with accrual journal ID: ${journalId}`);
+      
+      // Link the journal back to the booking line item in Salesforce
+      try {
+        await linkJournalToBookingLineItem(
+          journalId,
+          lineItemId,
+          booking.externalTransactionNumber,
+          "HOTEL",
+          booking.memberId
+        );
+      } catch (error) {
+        console.warn(`[loyalty/accrual-stay] Failed to link journal ${journalId} to line item:`, error);
+        // Don't fail the entire transaction if linking fails
+      }
+    }
+    
+    return res.status(201).json({
+      ...result.body,
+      _booking: {
+        bookingId: booking.id,
+        lineItemId,
+        journalId
+      }
+    });
   } catch (e: any) {
+    console.error('[loyalty/accrual-stay] Error:', e);
+    return res.status(400).json({
+      status: "INVALID_REQUEST",
+      message: e?.message || String(e),
+    });
+  }
+});
+
+// POST /api/loyalty/journals/redemption-stay - Submit redemption (Redeem Points) journal
+router.post("/journals/redemption-stay", async (req, res) => {
+  try {
+    const input = req.body as RedemptionStayRequest;
+    const externalTransactionNumber = input.ExternalTransactionNumber;
+
+    // Validate that points to redeem is provided and positive
+    if (!input.Points_to_Redeem__c || input.Points_to_Redeem__c <= 0) {
+      return res.status(400).json({
+        status: "INVALID_REQUEST",
+        message: "Points_to_Redeem__c is required and must be positive"
+      });
+    }
+    
+    if (!externalTransactionNumber) {
+      return res.status(400).json({
+        status: "INVALID_REQUEST",
+        message: "ExternalTransactionNumber is required",
+      });
+    }
+
+    // 1. Find or create booking
+    let booking = await getBookingByExternalTransactionNumber(externalTransactionNumber);
+    let lineItemId: string;
+    
+    if (!booking) {
+      // Create booking record for redemption-only transaction
+      const bookingRequest: CreateBookingRequest = {
+        externalTransactionNumber,
+        memberId: input.MemberId,
+        membershipNumber: req.session?.member?.membershipNumber,
+        
+        bookingDate: input.BookingDate || new Date().toISOString().split('T')[0],
+        tripStartDate: input.Trip_Start_Date__c,
+        tripEndDate: input.Trip_End_Date__c,
+        
+        posa: input.POSa__c,
+        
+        lineItems: [{
+          lob: "HOTEL",
+          pointsRedeemed: input.Points_to_Redeem__c,
+          currency: input.CurrencyIsoCode || "USD",
+          productName: `${input.Destination_City__c || 'Hotel'} Stay (Points)`,
+          destinationCity: input.Destination_City__c,
+          destinationCountry: input.Destination_Country__c,
+          startDate: input.Trip_Start_Date__c,
+          endDate: input.Trip_End_Date__c,
+          nights: input.Length_of_Booking__c ? Number(input.Length_of_Booking__c) : undefined,
+        }],
+        
+        createdBy: 'loyalty-journal-api',
+      };
+      
+      booking = await createBooking(bookingRequest);
+      lineItemId = booking.lineItems[0].id;
+      console.log(`[loyalty/redemption-stay] Created booking ${booking.id} with line item ${lineItemId}`);
+    } else {
+      // Find hotel line item or use first one
+      const hotelItem = booking.lineItems.find(item => item.lob === "HOTEL" && item.status === "ACTIVE");
+      lineItemId = hotelItem?.id || booking.lineItems[0]?.id;
+      
+      if (!lineItemId) {
+        return res.status(400).json({
+          status: "INVALID_REQUEST",
+          message: "No valid line items found in existing booking",
+        });
+      }
+    }
+
+    // 2. Build the journal body with forced classifications
+    const body = {
+      ...input,
+      JournalTypeName: "Redemption", 
+      JournalSubTypeName: "Redeem Points",
+      External_ID__c: input.External_ID__c ?? input.ExternalTransactionNumber,
+      ActivityDate: input.ActivityDate || new Date().toISOString(),
+      CurrencyIsoCode: input.CurrencyIsoCode || "USD",
+    };
+
+    console.log(`[loyalty/redemption-stay] Submitting redemption journal:`, {
+      externalId: body.ExternalTransactionNumber,
+      points: body.Points_to_Redeem__c,
+      memberId: body.MemberId,
+      bookingId: booking.id,
+      lineItemId
+    });
+
+    const result = await executeRedemptionStayJournal(body as any);
+    
+    if (!result.ok) {
+      console.error('[loyalty/redemption-stay] Failed:', result.body);
+      return res.status(result.status).json({ 
+        status: "ERROR", 
+        message: "Failed to submit redemption journal",
+        ...result.body 
+      });
+    }
+
+    // 3. Extract journal ID from Salesforce response and update booking
+    const journalId = result.body?.processResult?.transactionJournalResult?.[0]?.id ||
+                     result.body?.transactionJournals?.[0]?.transactionJournalId || 
+                     result.body?.transactionJournalId ||
+                     result.body?.journalId;
+    
+    if (journalId) {
+      await updateLineItemJournalIds(booking.id, lineItemId, { redemptionJournalId: journalId });
+      console.log(`[loyalty/redemption-stay] Updated booking ${booking.id} with redemption journal ID: ${journalId}`);
+      
+      // Link the journal back to the booking line item in Salesforce
+      try {
+        await linkJournalToBookingLineItem(
+          journalId,
+          lineItemId,
+          booking.externalTransactionNumber,
+          "HOTEL",
+          booking.memberId
+        );
+      } catch (error) {
+        console.warn(`[loyalty/redemption-stay] Failed to link journal ${journalId} to line item:`, error);
+        // Don't fail the entire transaction if linking fails
+      }
+    }
+
+    return res.status(201).json({
+      ...result.body,
+      _booking: {
+        bookingId: booking.id,
+        lineItemId,
+        journalId
+      }
+    });
+
+  } catch (e: any) {
+    console.error('[loyalty/redemption-stay] Error:', e);
     return res.status(400).json({
       status: "INVALID_REQUEST",
       message: e?.message || String(e),

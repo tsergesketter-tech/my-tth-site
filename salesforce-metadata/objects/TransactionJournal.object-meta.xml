@@ -1,0 +1,69 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomObject xmlns="http://soap.sforce.com/2006/04/metadata">
+    <description>Enhanced TransactionJournal with booking relationships</description>
+    
+    <!-- Booking Line Item Relationship -->
+    <fields>
+        <fullName>Booking_Line_Item__c</fullName>
+        <deleteConstraint>SetNull</deleteConstraint>
+        <label>Booking Line Item</label>
+        <referenceTo>Booking_Line_Item__c</referenceTo>
+        <relationshipLabel>Transaction Journals</relationshipLabel>
+        <relationshipName>Transaction_Journals</relationshipName>
+        <required>false</required>
+        <trackFeedHistory>false</trackFeedHistory>
+        <trackHistory>false</trackHistory>
+        <trackTrending>false</trackTrending>
+        <type>Lookup</type>
+    </fields>
+    
+    <!-- External Transaction Reference for easier queries -->
+    <fields>
+        <fullName>External_Transaction_Number__c</fullName>
+        <label>External Transaction Number</label>
+        <length>100</length>
+        <required>false</required>
+        <trackFeedHistory>false</trackFeedHistory>
+        <trackHistory>false</trackHistory>
+        <trackTrending>false</trackTrending>
+        <type>Text</type>
+        <unique>false</unique>
+    </fields>
+    
+    <!-- Line of Business for reporting -->
+    <fields>
+        <fullName>Line_of_Business__c</fullName>
+        <label>Line of Business</label>
+        <required>false</required>
+        <trackFeedHistory>false</trackFeedHistory>
+        <trackHistory>false</trackHistory>
+        <trackTrending>false</trackTrending>
+        <type>Picklist</type>
+        <valueSet>
+            <restricted>true</restricted>
+            <valueSetDefinition>
+                <sorted>false</sorted>
+                <value>
+                    <fullName>FLIGHT</fullName>
+                    <default>false</default>
+                    <label>Flight</label>
+                </value>
+                <value>
+                    <fullName>HOTEL</fullName>
+                    <default>true</default>
+                    <label>Hotel</label>
+                </value>
+                <value>
+                    <fullName>CAR</fullName>
+                    <default>false</default>
+                    <label>Car</label>
+                </value>
+                <value>
+                    <fullName>PACKAGE</fullName>
+                    <default>false</default>
+                    <label>Package</label>
+                </value>
+            </valueSetDefinition>
+        </valueSet>
+    </fields>
+</CustomObject>

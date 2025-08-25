@@ -32,6 +32,7 @@ export type AccrualStayRequest = {
 export type RedemptionStayRequest = {
   ExternalTransactionNumber: string;
   ActivityDate: string;
+  CurrencyIsoCode?: string;
   MemberId?: string;
 
   Points_to_Redeem__c: number;

@@ -1,0 +1,12 @@
+{
+  "packageDirectories": [
+    {
+      "path": "salesforce-metadata",
+      "default": true
+    }
+  ],
+  "name": "TTH Booking System Salesforce Integration",
+  "namespace": "",
+  "sfdcLoginUrl": "https://login.salesforce.com",
+  "sourceApiVersion": "64.0"
+}

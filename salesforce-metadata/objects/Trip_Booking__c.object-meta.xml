@@ -1,0 +1,343 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomObject xmlns="http://soap.sforce.com/2006/04/metadata">
+    <actionOverrides>
+        <actionName>Accept</actionName>
+        <type>Default</type>
+    </actionOverrides>
+    <actionOverrides>
+        <actionName>CancelEdit</actionName>
+        <type>Default</type>
+    </actionOverrides>
+    <actionOverrides>
+        <actionName>Clone</actionName>
+        <type>Default</type>
+    </actionOverrides>
+    <actionOverrides>
+        <actionName>Delete</actionName>
+        <type>Default</type>
+    </actionOverrides>
+    <actionOverrides>
+        <actionName>Edit</actionName>
+        <type>Default</type>
+    </actionOverrides>
+    <actionOverrides>
+        <actionName>List</actionName>
+        <type>Default</type>
+    </actionOverrides>
+    <actionOverrides>
+        <actionName>New</actionName>
+        <type>Default</type>
+    </actionOverrides>
+    <actionOverrides>
+        <actionName>SaveEdit</actionName>
+        <type>Default</type>
+    </actionOverrides>
+    <actionOverrides>
+        <actionName>Tab</actionName>
+        <type>Default</type>
+    </actionOverrides>
+    <actionOverrides>
+        <actionName>View</actionName>
+        <type>Default</type>
+    </actionOverrides>
+    <allowInChatterGroups>false</allowInChatterGroups>
+    <compactLayoutAssignment>SYSTEM</compactLayoutAssignment>
+    <deploymentStatus>Deployed</deploymentStatus>
+    <enableActivities>true</enableActivities>
+    <enableBulkApi>true</enableBulkApi>
+    <enableFeeds>true</enableFeeds>
+    <enableHistory>true</enableHistory>
+    <enableLicensing>false</enableLicensing>
+    <enableReports>true</enableReports>
+    <enableSearch>true</enableSearch>
+    <enableSharing>true</enableSharing>
+    <enableStreamingApi>true</enableStreamingApi>
+    <externalSharingModel>Private</externalSharingModel>
+    <label>Trip Booking</label>
+    <nameField>
+        <displayFormat>TBK-{0000}</displayFormat>
+        <label>Booking Number</label>
+        <type>AutoNumber</type>
+    </nameField>
+    <pluralLabel>Trip Bookings</pluralLabel>
+    <searchLayouts/>
+    <sharingModel>ReadWrite</sharingModel>
+    <visibility>Public</visibility>
+
+    <!-- Core Fields -->
+    <fields>
+        <fullName>External_Transaction_Number__c</fullName>
+        <caseSensitive>true</caseSensitive>
+        <externalId>true</externalId>
+        <label>External Transaction Number</label>
+        <length>100</length>
+        <required>true</required>
+        <trackFeedHistory>false</trackFeedHistory>
+        <trackHistory>false</trackHistory>
+        <trackTrending>false</trackTrending>
+        <type>Text</type>
+        <unique>true</unique>
+    </fields>
+
+    <fields>
+        <fullName>Booking_Status__c</fullName>
+        <label>Booking Status</label>
+        <required>true</required>
+        <trackFeedHistory>true</trackFeedHistory>
+        <trackHistory>true</trackHistory>
+        <trackTrending>false</trackTrending>
+        <type>Picklist</type>
+        <valueSet>
+            <restricted>true</restricted>
+            <valueSetDefinition>
+                <sorted>false</sorted>
+                <value>
+                    <fullName>ACTIVE</fullName>
+                    <default>true</default>
+                    <label>Active</label>
+                </value>
+                <value>
+                    <fullName>PARTIALLY_CANCELLED</fullName>
+                    <default>false</default>
+                    <label>Partially Cancelled</label>
+                </value>
+                <value>
+                    <fullName>FULLY_CANCELLED</fullName>
+                    <default>false</default>
+                    <label>Fully Cancelled</label>
+                </value>
+                <value>
+                    <fullName>PENDING_CANCELLATION</fullName>
+                    <default>false</default>
+                    <label>Pending Cancellation</label>
+                </value>
+            </valueSetDefinition>
+        </valueSet>
+    </fields>
+
+    <!-- Member Information -->
+    <fields>
+        <fullName>Loyalty_Program_Member__c</fullName>
+        <deleteConstraint>SetNull</deleteConstraint>
+        <label>Loyalty Program Member</label>
+        <referenceTo>LoyaltyProgramMember</referenceTo>
+        <relationshipLabel>Trip Bookings</relationshipLabel>
+        <relationshipName>Trip_Bookings</relationshipName>
+        <required>false</required>
+        <trackFeedHistory>false</trackFeedHistory>
+        <trackHistory>false</trackHistory>
+        <trackTrending>false</trackTrending>
+        <type>Lookup</type>
+    </fields>
+
+    <fields>
+        <fullName>Member_Id__c</fullName>
+        <label>Member Id</label>
+        <length>18</length>
+        <required>false</required>
+        <trackFeedHistory>false</trackFeedHistory>
+        <trackHistory>false</trackHistory>
+        <trackTrending>false</trackTrending>
+        <type>Text</type>
+        <unique>false</unique>
+    </fields>
+
+    <fields>
+        <fullName>Membership_Number__c</fullName>
+        <label>Membership Number</label>
+        <length>50</length>
+        <required>false</required>
+        <trackFeedHistory>false</trackFeedHistory>
+        <trackHistory>false</trackHistory>
+        <trackTrending>false</trackTrending>
+        <type>Text</type>
+        <unique>false</unique>
+    </fields>
+
+    <!-- Booking Details -->
+    <fields>
+        <fullName>Booking_Date__c</fullName>
+        <label>Booking Date</label>
+        <required>true</required>
+        <trackFeedHistory>false</trackFeedHistory>
+        <trackHistory>false</trackHistory>
+        <trackTrending>false</trackTrending>
+        <type>Date</type>
+    </fields>
+
+    <fields>
+        <fullName>Trip_Start_Date__c</fullName>
+        <label>Trip Start Date</label>
+        <required>false</required>
+        <trackFeedHistory>false</trackFeedHistory>
+        <trackHistory>false</trackHistory>
+        <trackTrending>false</trackTrending>
+        <type>Date</type>
+    </fields>
+
+    <fields>
+        <fullName>Trip_End_Date__c</fullName>
+        <label>Trip End Date</label>
+        <required>false</required>
+        <trackFeedHistory>false</trackFeedHistory>
+        <trackHistory>false</trackHistory>
+        <trackTrending>false</trackTrending>
+        <type>Date</type>
+    </fields>
+
+    <fields>
+        <fullName>Channel__c</fullName>
+        <label>Channel</label>
+        <length>50</length>
+        <required>false</required>
+        <trackFeedHistory>false</trackFeedHistory>
+        <trackHistory>false</trackHistory>
+        <trackTrending>false</trackTrending>
+        <type>Text</type>
+        <unique>false</unique>
+    </fields>
+
+    <fields>
+        <fullName>POS__c</fullName>
+        <label>Point of Sale</label>
+        <length>10</length>
+        <required>false</required>
+        <trackFeedHistory>false</trackFeedHistory>
+        <trackHistory>false</trackHistory>
+        <trackTrending>false</trackTrending>
+        <type>Text</type>
+        <unique>false</unique>
+    </fields>
+
+    <fields>
+        <fullName>Payment_Method__c</fullName>
+        <label>Payment Method</label>
+        <length>50</length>
+        <required>false</required>
+        <trackFeedHistory>false</trackFeedHistory>
+        <trackHistory>false</trackHistory>
+        <trackTrending>false</trackTrending>
+        <type>Text</type>
+        <unique>false</unique>
+    </fields>
+
+    <!-- Financial Totals -->
+    <fields>
+        <fullName>Total_Cash_Amount__c</fullName>
+        <label>Total Cash Amount</label>
+        <precision>18</precision>
+        <required>false</required>
+        <scale>2</scale>
+        <trackFeedHistory>false</trackFeedHistory>
+        <trackHistory>false</trackHistory>
+        <trackTrending>false</trackTrending>
+        <type>Currency</type>
+    </fields>
+
+    <fields>
+        <fullName>Total_Taxes_And_Fees__c</fullName>
+        <label>Total Taxes And Fees</label>
+        <precision>18</precision>
+        <required>false</required>
+        <scale>2</scale>
+        <trackFeedHistory>false</trackFeedHistory>
+        <trackHistory>false</trackHistory>
+        <trackTrending>false</trackTrending>
+        <type>Currency</type>
+    </fields>
+
+    <fields>
+        <fullName>Total_Points_Redeemed__c</fullName>
+        <label>Total Points Redeemed</label>
+        <precision>18</precision>
+        <required>false</required>
+        <scale>0</scale>
+        <trackFeedHistory>false</trackFeedHistory>
+        <trackHistory>false</trackHistory>
+        <trackTrending>false</trackTrending>
+        <type>Number</type>
+        <unique>false</unique>
+    </fields>
+
+    <fields>
+        <fullName>Total_Points_Earned__c</fullName>
+        <label>Total Points Earned</label>
+        <precision>18</precision>
+        <required>false</required>
+        <scale>0</scale>
+        <trackFeedHistory>false</trackFeedHistory>
+        <trackHistory>false</trackHistory>
+        <trackTrending>false</trackTrending>
+        <type>Number</type>
+        <unique>false</unique>
+    </fields>
+
+    <!-- System Fields -->
+    <fields>
+        <fullName>Internal_Booking_Id__c</fullName>
+        <label>Internal Booking Id</label>
+        <length>100</length>
+        <required>false</required>
+        <trackFeedHistory>false</trackFeedHistory>
+        <trackHistory>false</trackHistory>
+        <trackTrending>false</trackTrending>
+        <type>Text</type>
+        <unique>false</unique>
+    </fields>
+
+    <fields>
+        <fullName>Created_By_System__c</fullName>
+        <label>Created By System</label>
+        <length>50</length>
+        <required>false</required>
+        <trackFeedHistory>false</trackFeedHistory>
+        <trackHistory>false</trackHistory>
+        <trackTrending>false</trackTrending>
+        <type>Text</type>
+        <unique>false</unique>
+    </fields>
+
+    <fields>
+        <fullName>Notes__c</fullName>
+        <label>Notes</label>
+        <length>2000</length>
+        <trackFeedHistory>false</trackFeedHistory>
+        <trackHistory>false</trackHistory>
+        <trackTrending>false</trackTrending>
+        <type>LongTextArea</type>
+        <visibleLines>3</visibleLines>
+    </fields>
+
+    <fields>
+        <fullName>Last_Sync_Date__c</fullName>
+        <label>Last Sync Date</label>
+        <required>false</required>
+        <trackFeedHistory>false</trackFeedHistory>
+        <trackHistory>false</trackHistory>
+        <trackTrending>false</trackTrending>
+        <type>DateTime</type>
+    </fields>
+
+    <!-- Validation Rules -->
+    <validationRules>
+        <fullName>Trip_End_After_Start</fullName>
+        <active>true</active>
+        <description>Trip end date must be after or equal to trip start date</description>
+        <errorConditionFormula>AND(
+            NOT(ISBLANK(Trip_Start_Date__c)),
+            NOT(ISBLANK(Trip_End_Date__c)),
+            Trip_End_Date__c &lt; Trip_Start_Date__c
+        )</errorConditionFormula>
+        <errorDisplayField>Trip_End_Date__c</errorDisplayField>
+        <errorMessage>Trip end date must be after or equal to trip start date.</errorMessage>
+    </validationRules>
+
+    <validationRules>
+        <fullName>External_Transaction_Required</fullName>
+        <active>true</active>
+        <description>External Transaction Number is required</description>
+        <errorConditionFormula>ISBLANK(External_Transaction_Number__c)</errorConditionFormula>
+        <errorDisplayField>External_Transaction_Number__c</errorDisplayField>
+        <errorMessage>External Transaction Number is required.</errorMessage>
+    </validationRules>
+</CustomObject>
