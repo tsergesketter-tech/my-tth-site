@@ -129,7 +129,7 @@ export async function createSalesforceLineItem(
       Product_Code__c: lineItem.productCode,
       Cash_Amount__c: lineItem.cashAmount,
       Points_Redeemed__c: lineItem.pointsRedeemed,
-      Currency_Code__c: lineItem.currency,
+      Currency_Code__c: lineItem.currency || 'USD', // Ensure currency is always set, default to USD
       Taxes__c: lineItem.taxes,
       Fees__c: lineItem.fees,
       Destination_City__c: lineItem.destinationCity,
