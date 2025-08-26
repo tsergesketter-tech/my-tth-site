@@ -268,11 +268,29 @@ export default function Checkout() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          stayId: s.id,
-          roomCode: r.code,
-          guests,
-          nights,
-          total: price.total, // NOTE: accrual uses original total; redemption not wired yet
+          externalTransactionNumber: bookingId,
+          membershipNumber: "DL12345", // Use consistent member number
+          channel: "Web",
+          posa: "US",
+          bookingDate: new Date().toISOString().slice(0, 10),
+          tripStartDate: checkInISO.slice(0, 10),
+          tripEndDate: checkOutISO.slice(0, 10),
+          lineItems: [{
+            lob: "HOTEL",
+            productCode: r.code,
+            productName: r.name,
+            productDescription: `${s.name} - ${s.city}`,
+            quantity: nights,
+            unitPrice: r.nightlyRate,
+            cashAmount: adjustedTotal,
+            taxes: price.taxes,
+            fees: price.resortFees,
+            pointsRedeemed: redeemPoints,
+            startDate: checkInISO,
+            endDate: checkOutISO,
+            destinationCity: s.city,
+            destinationCountry: "US"
+          }]
         }),
       });
       if (res.ok) {
