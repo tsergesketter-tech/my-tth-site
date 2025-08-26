@@ -109,11 +109,15 @@ export async function executeCancellation(
 }
 
 /**
- * Helper function to get upcoming bookings (active bookings with future dates)
+ * Helper function to get upcoming bookings (active bookings with recent or future dates)
  */
 export function getUpcomingBookings(bookings: TripBooking[]): TripBooking[] {
   const today = new Date();
-  today.setHours(0, 0, 0, 0); // Start of today for date comparison
+  today.setHours(0, 0, 0, 0);
+  
+  // Allow bookings from the past 7 days to show (for recent bookings)
+  const weekAgo = new Date(today);
+  weekAgo.setDate(weekAgo.getDate() - 7);
   
   return bookings.filter(booking => {
     // Only show active or partially cancelled bookings
@@ -126,17 +130,17 @@ export function getUpcomingBookings(bookings: TripBooking[]): TripBooking[] {
       if (booking.tripStartDate) {
         const tripStart = new Date(booking.tripStartDate);
         tripStart.setHours(0, 0, 0, 0);
-        return tripStart >= today; // Include today's bookings
+        return tripStart >= weekAgo; // Include bookings from the past week
       }
       return true; // Include if no date specified
     }
 
-    // Check if any line item has a future or current start date
+    // Check if any line item has a recent, current, or future start date
     return booking.lineItems.some(item => {
       if (!item.startDate) return true; // Include if no date specified
       const startDate = new Date(item.startDate);
       startDate.setHours(0, 0, 0, 0);
-      return startDate >= today; // Include today's bookings
+      return startDate >= weekAgo; // Include bookings from the past week
     });
   });
 }
