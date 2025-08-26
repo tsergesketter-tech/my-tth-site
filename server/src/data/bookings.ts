@@ -297,6 +297,28 @@ export async function cancelLineItems(
   return itemsCancelled > 0;
 }
 
+// Update line item points redeemed (for redemption service)
+export async function updateLineItemPointsRedeemed(
+  bookingId: string,
+  lineItemId: string,
+  pointsRedeemed: number
+): Promise<boolean> {
+  const booking = await getBookingById(bookingId);
+  if (!booking) return false;
+  
+  const lineItem = booking.lineItems.find(item => item.id === lineItemId);
+  if (!lineItem) return false;
+  
+  // Update line item with points redeemed
+  lineItem.pointsRedeemed = (lineItem.pointsRedeemed || 0) + pointsRedeemed;
+  lineItem.updatedAt = new Date().toISOString();
+  
+  // Save to in-memory storage
+  BOOKINGS.set(booking.id, booking);
+  
+  return true;
+}
+
 // Update line item status (for cancellation service)
 export async function updateLineItemStatus(
   bookingId: string,

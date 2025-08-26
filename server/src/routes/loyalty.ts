@@ -2,7 +2,7 @@
 import { Router, Request } from 'express';
 import { sfFetch } from '../salesforce/sfFetch';
 import { executeAccrualStayJournal, executeRedemptionStayJournal, AccrualStayJournal } from "../salesforce/journals";
-import { createBooking, getBookingByExternalTransactionNumber, updateLineItemJournalIds } from "../data/bookings";
+import { createBooking, getBookingByExternalTransactionNumber, updateLineItemJournalIds, updateLineItemPointsRedeemed } from "../data/bookings";
 import { linkJournalToBookingLineItem } from "../salesforce/journalBookingLink";
 import type { CreateBookingRequest } from "../../../shared/bookingTypes";
 import type { AccrualStayRequest, RedemptionStayRequest } from "../../../shared/loyaltyTypes";
@@ -366,8 +366,9 @@ router.post("/journals/redemption-stay", async (req, res) => {
       });
     }
 
-    // 1. Find or create booking
-    let booking = await getBookingByExternalTransactionNumber(externalTransactionNumber);
+    // 1. Find the original booking (strip -REDEEM suffix to find the accrual booking)
+    const originalTransactionNumber = externalTransactionNumber.replace(/-REDEEM$/, '');
+    let booking = await getBookingByExternalTransactionNumber(originalTransactionNumber);
     let lineItemId: string;
     
     if (!booking) {
@@ -452,6 +453,10 @@ router.post("/journals/redemption-stay", async (req, res) => {
     if (journalId) {
       await updateLineItemJournalIds(booking.id, lineItemId, { redemptionJournalId: journalId });
       console.log(`[loyalty/redemption-stay] Updated booking ${booking.id} with redemption journal ID: ${journalId}`);
+      
+      // Update the line item with redeemed points
+      await updateLineItemPointsRedeemed(booking.id, lineItemId, input.Points_to_Redeem__c);
+      console.log(`[loyalty/redemption-stay] Added ${input.Points_to_Redeem__c} points redeemed to line item ${lineItemId}`);
       
       // Link the journal back to the booking line item in Salesforce
       try {
