@@ -314,7 +314,10 @@ export async function updateLineItemPointsRedeemed(
   lineItem.updatedAt = new Date().toISOString();
   
   // Save to in-memory storage
-  BOOKINGS.set(booking.id, booking);
+  const bookingIndex = bookings.findIndex(b => b.id === booking.id);
+  if (bookingIndex !== -1) {
+    bookings[bookingIndex] = booking;
+  }
   
   return true;
 }
