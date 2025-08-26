@@ -20,7 +20,7 @@ import type {
   BookingFilters,
   TripBooking 
 } from "../../../shared/bookingTypes";
-import { getSalesforceBooking } from "../salesforce/bookings";
+import { getSalesforceBooking, querySalesforceBookings } from "../salesforce/bookings";
 
 const router = Router();
 
@@ -94,7 +94,8 @@ router.get("/", async (req, res) => {
       externalTransactionNumber,
       page = "1",
       pageSize = "20",
-      summary = "false"
+      summary = "false",
+      source = "salesforce"
     } = req.query;
     
     const filters: BookingFilters = {};
@@ -109,6 +110,52 @@ router.get("/", async (req, res) => {
     const pageNum = Math.max(1, parseInt(String(page)));
     const pageSizeNum = Math.min(100, Math.max(1, parseInt(String(pageSize))));
     
+    // Try Salesforce first if enabled and requested
+    if (source === "salesforce" && process.env.SF_SYNC_BOOKINGS === "true") {
+      try {
+        console.log(`[bookings] Querying Salesforce with filters:`, filters);
+        const result = await querySalesforceBookings(filters, pageNum, pageSizeNum);
+        
+        if (summary === "true") {
+          // Convert to summary format
+          const summaries = result.bookings.map(booking => ({
+            id: booking.id,
+            externalTransactionNumber: booking.externalTransactionNumber,
+            status: booking.status,
+            bookingDate: booking.bookingDate,
+            totalCashAmount: booking.totalCashAmount,
+            totalPointsRedeemed: booking.totalPointsRedeemed,
+            lineItemCount: booking.lineItems.length,
+            lobTypes: [...new Set(booking.lineItems.map(item => item.lob))] as any[]
+          }));
+          
+          return res.json({
+            summaries,
+            totalCount: result.totalCount,
+            page: pageNum,
+            pageSize: pageSizeNum,
+            hasMore: pageNum * pageSizeNum < result.totalCount,
+            _source: "salesforce"
+          });
+        } else {
+          return res.json({
+            bookings: result.bookings,
+            totalCount: result.totalCount,
+            page: pageNum,
+            pageSize: pageSizeNum,
+            hasMore: pageNum * pageSizeNum < result.totalCount,
+            _source: "salesforce"
+          });
+        }
+        
+      } catch (salesforceError: any) {
+        console.warn(`[bookings] Salesforce query failed, falling back to local:`, salesforceError.message);
+        // Fall through to local storage
+      }
+    }
+    
+    // Fallback to local storage
+    console.log(`[bookings] Using local storage with filters:`, filters);
     if (summary === "true") {
       const result = await getBookingSummaries(filters, pageNum, pageSizeNum);
       res.json({
@@ -116,7 +163,8 @@ router.get("/", async (req, res) => {
         totalCount: result.totalCount,
         page: pageNum,
         pageSize: pageSizeNum,
-        hasMore: pageNum * pageSizeNum < result.totalCount
+        hasMore: pageNum * pageSizeNum < result.totalCount,
+        _source: "local"
       });
     } else {
       const result = await listBookings(filters, pageNum, pageSizeNum);
@@ -125,7 +173,8 @@ router.get("/", async (req, res) => {
         totalCount: result.totalCount,
         page: pageNum,
         pageSize: pageSizeNum,
-        hasMore: pageNum * pageSizeNum < result.totalCount
+        hasMore: pageNum * pageSizeNum < result.totalCount,
+        _source: "local"
       });
     }
     

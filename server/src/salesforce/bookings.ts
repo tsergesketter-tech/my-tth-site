@@ -476,3 +476,161 @@ export async function getSalesforceBooking(externalTransactionNumber: string): P
     throw error;
   }
 }
+
+// Convert Salesforce booking record to TripBooking format
+function convertSalesforceBookingToTripBooking(sfRecord: any): TripBooking {
+  const lineItems: BookingLineItem[] = (sfRecord.Booking_Line_Items__r?.records || []).map((sfLineItem: any) => ({
+    id: sfLineItem.Internal_Line_Item_Id__c || sfLineItem.Id,
+    lob: sfLineItem.Line_of_Business__c,
+    status: sfLineItem.Line_Item_Status__c || "ACTIVE",
+    productName: sfLineItem.Product_Name__c,
+    productCode: sfLineItem.Product_Code__c,
+    cashAmount: sfLineItem.Cash_Amount__c || 0,
+    pointsRedeemed: sfLineItem.Points_Redeemed__c || 0,
+    currency: sfLineItem.Currency_Code__c || "USD",
+    taxes: sfLineItem.Taxes__c || 0,
+    fees: sfLineItem.Fees__c || 0,
+    destinationCity: sfLineItem.Destination_City__c,
+    destinationCountry: sfLineItem.Destination_Country__c,
+    startDate: sfLineItem.Start_Date__c,
+    endDate: sfLineItem.End_Date__c,
+    nights: sfLineItem.Nights__c,
+    redemptionJournalId: sfLineItem.Redemption_Journal_Id__c,
+    accrualJournalId: sfLineItem.Accrual_Journal_Id__c,
+    cancelledAt: sfLineItem.Cancelled_Date__c,
+    cancellationReason: sfLineItem.Cancellation_Reason__c,
+    cancelledBy: sfLineItem.Cancelled_By__c,
+    createdAt: new Date().toISOString(), // SF doesn't store individual line item creation dates
+    updatedAt: new Date().toISOString()
+  }));
+
+  return {
+    id: sfRecord.Internal_Booking_Id__c || sfRecord.Id,
+    externalTransactionNumber: sfRecord.External_Transaction_Number__c,
+    memberId: sfRecord.Member_Id__c,
+    membershipNumber: sfRecord.Membership_Number__c,
+    bookingDate: sfRecord.Booking_Date__c,
+    tripStartDate: sfRecord.Trip_Start_Date__c,
+    tripEndDate: sfRecord.Trip_End_Date__c,
+    channel: sfRecord.Channel__c,
+    posa: sfRecord.POS__c,
+    paymentMethod: sfRecord.Payment_Method__c,
+    lineItems,
+    status: sfRecord.Booking_Status__c || "ACTIVE",
+    totalCashAmount: sfRecord.Total_Cash_Amount__c || 0,
+    totalTaxesAndFees: sfRecord.Total_Taxes_And_Fees__c || 0,
+    totalPointsRedeemed: sfRecord.Total_Points_Redeemed__c || 0,
+    totalPointsEarned: sfRecord.Total_Points_Earned__c || 0,
+    createdAt: new Date(sfRecord.CreatedDate || Date.now()).toISOString(),
+    updatedAt: new Date(sfRecord.LastModifiedDate || Date.now()).toISOString(),
+    createdBy: sfRecord.Created_By_System__c,
+    notes: sfRecord.Notes__c
+  };
+}
+
+// Query bookings from Salesforce with filters
+export async function querySalesforceBookings(
+  filters: {
+    membershipNumber?: string;
+    memberId?: string;
+    status?: string;
+    dateFrom?: string;
+    dateTo?: string;
+    lob?: string;
+    externalTransactionNumber?: string;
+  } = {},
+  page = 1,
+  pageSize = 20
+): Promise<{ bookings: TripBooking[], totalCount: number }> {
+  try {
+    const { access_token, instance_url } = await getClientCredentialsToken();
+    
+    // Build WHERE clause
+    const whereConditions = [];
+    
+    if (filters.membershipNumber) {
+      whereConditions.push(`Membership_Number__c = '${filters.membershipNumber}'`);
+    }
+    
+    if (filters.memberId) {
+      whereConditions.push(`Member_Id__c = '${filters.memberId}'`);
+    }
+    
+    if (filters.status) {
+      whereConditions.push(`Booking_Status__c = '${filters.status}'`);
+    }
+    
+    if (filters.dateFrom) {
+      whereConditions.push(`Booking_Date__c >= ${filters.dateFrom}`);
+    }
+    
+    if (filters.dateTo) {
+      whereConditions.push(`Booking_Date__c <= ${filters.dateTo}`);
+    }
+    
+    if (filters.externalTransactionNumber) {
+      whereConditions.push(`External_Transaction_Number__c LIKE '%${filters.externalTransactionNumber}%'`);
+    }
+    
+    const whereClause = whereConditions.length > 0 ? `WHERE ${whereConditions.join(' AND ')}` : '';
+    
+    // Count query
+    const countQuery = `SELECT COUNT() FROM Trip_Booking__c ${whereClause}`;
+    const countUrl = `${instance_url}/services/data/${DEFAULT_API_VERSION}/query?q=${encodeURIComponent(countQuery)}`;
+    
+    const countResponse = await fetch(countUrl, {
+      headers: { 'Authorization': `Bearer ${access_token}` }
+    });
+    
+    const countResult = await countResponse.json();
+    const totalCount = countResult.totalSize || 0;
+    
+    if (totalCount === 0) {
+      return { bookings: [], totalCount: 0 };
+    }
+    
+    // Data query with pagination
+    const offset = (page - 1) * pageSize;
+    const dataQuery = `
+      SELECT Id, Name, External_Transaction_Number__c, Booking_Status__c, Member_Id__c, 
+             Membership_Number__c, Booking_Date__c, Trip_Start_Date__c, Trip_End_Date__c,
+             Channel__c, POS__c, Payment_Method__c, Total_Cash_Amount__c, Total_Taxes_And_Fees__c,
+             Total_Points_Redeemed__c, Total_Points_Earned__c, Internal_Booking_Id__c,
+             Created_By_System__c, Notes__c, Last_Sync_Date__c, CreatedDate, LastModifiedDate,
+             (SELECT Id, Name, Line_of_Business__c, Line_Item_Status__c, Product_Name__c,
+                     Product_Code__c, Cash_Amount__c, Points_Redeemed__c, Currency_Code__c,
+                     Taxes__c, Fees__c, Destination_City__c, Destination_Country__c,
+                     Start_Date__c, End_Date__c, Nights__c, Redemption_Journal_Id__c,
+                     Accrual_Journal_Id__c, Cancelled_Date__c, Cancellation_Reason__c,
+                     Cancelled_By__c, Internal_Line_Item_Id__c
+              FROM Booking_Line_Items__r)
+      FROM Trip_Booking__c 
+      ${whereClause}
+      ORDER BY CreatedDate DESC
+      LIMIT ${pageSize} OFFSET ${offset}
+    `;
+    
+    const dataUrl = `${instance_url}/services/data/${DEFAULT_API_VERSION}/query?q=${encodeURIComponent(dataQuery)}`;
+    
+    const dataResponse = await fetch(dataUrl, {
+      headers: { 'Authorization': `Bearer ${access_token}` }
+    });
+    
+    const dataResult = await dataResponse.json();
+    
+    if (!dataResponse.ok) {
+      throw new Error(dataResult.message || dataResult[0]?.message || `HTTP ${dataResponse.status}`);
+    }
+    
+    // Convert to TripBooking format
+    const bookings: TripBooking[] = (dataResult.records || []).map(convertSalesforceBookingToTripBooking);
+    
+    console.log(`[sf-bookings] Queried ${bookings.length} bookings from Salesforce (total: ${totalCount})`);
+    
+    return { bookings, totalCount };
+    
+  } catch (error: any) {
+    console.error('[sf-bookings] Error querying bookings:', error);
+    throw error;
+  }
+}
