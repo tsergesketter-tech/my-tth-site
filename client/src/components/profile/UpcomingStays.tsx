@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useBookings } from "../../hooks/useBookings";
 import { getBookingStatusDisplay, calculateBookingTotals } from "../../utils/bookingApi";
 import CancellationModal from "../CancellationModal";
@@ -9,6 +9,16 @@ export default function UpcomingStays() {
   const [selectedBooking, setSelectedBooking] = useState<TripBooking | null>(null);
   const [selectedLineItems, setSelectedLineItems] = useState<BookingLineItem[]>([]);
   const [showCancellationModal, setShowCancellationModal] = useState(false);
+
+  // Filter state
+  const [filters, setFilters] = useState({
+    city: "",
+    dateFrom: "",
+    dateTo: "",
+    lob: "",
+    status: ""
+  });
+  const [showFilters, setShowFilters] = useState(false);
 
   const handleCancelBooking = (booking: TripBooking) => {
     setSelectedBooking(booking);
@@ -34,6 +44,53 @@ export default function UpcomingStays() {
     setSelectedBooking(null);
     setSelectedLineItems([]);
   };
+
+  // Filter bookings based on criteria
+  const filteredBookings = useMemo(() => {
+    return upcomingBookings.filter(booking => {
+      // City filter - check both booking destination and line item destinations
+      if (filters.city) {
+        const cityMatch = booking.lineItems.some(item => 
+          item.destinationCity?.toLowerCase().includes(filters.city.toLowerCase())
+        );
+        if (!cityMatch) return false;
+      }
+
+      // Date range filter - check both trip dates and line item dates
+      if (filters.dateFrom || filters.dateTo) {
+        const bookingStartDate = booking.tripStartDate || booking.bookingDate;
+        const startDate = new Date(bookingStartDate);
+        
+        if (filters.dateFrom && startDate < new Date(filters.dateFrom)) return false;
+        if (filters.dateTo && startDate > new Date(filters.dateTo)) return false;
+      }
+
+      // Line of Business filter
+      if (filters.lob) {
+        const lobMatch = booking.lineItems.some(item => item.lob === filters.lob);
+        if (!lobMatch) return false;
+      }
+
+      // Status filter
+      if (filters.status && booking.status !== filters.status) {
+        return false;
+      }
+
+      return true;
+    });
+  }, [upcomingBookings, filters]);
+
+  const clearFilters = () => {
+    setFilters({
+      city: "",
+      dateFrom: "",
+      dateTo: "",
+      lob: "",
+      status: ""
+    });
+  };
+
+  const hasActiveFilters = Object.values(filters).some(value => value !== "");
 
   if (loading) {
     return (
@@ -66,23 +123,135 @@ export default function UpcomingStays() {
   return (
     <>
       <div className="rounded-2xl bg-white border shadow p-4">
-        <div className="flex items-center justify-between mb-2">
-          <h3 className="font-semibold text-gray-900">Upcoming Stays</h3>
-          <div className="text-sm text-gray-500">
-            {upcomingBookings.length} booking{upcomingBookings.length !== 1 ? "s" : ""}
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center space-x-3">
+            <h3 className="font-semibold text-gray-900">Upcoming Stays</h3>
+            <div className="text-sm text-gray-500">
+              {filteredBookings.length} of {upcomingBookings.length} booking{upcomingBookings.length !== 1 ? "s" : ""}
+              {hasActiveFilters && <span className="text-blue-600 ml-1">(filtered)</span>}
+            </div>
+          </div>
+          <div className="flex items-center space-x-2">
+            {hasActiveFilters && (
+              <button
+                onClick={clearFilters}
+                className="text-sm text-gray-600 hover:text-gray-800 px-2 py-1 rounded border"
+              >
+                Clear filters
+              </button>
+            )}
+            <button
+              onClick={() => setShowFilters(!showFilters)}
+              className="text-sm text-blue-600 hover:text-blue-800 px-3 py-1 rounded border border-blue-200 hover:bg-blue-50"
+            >
+              {showFilters ? "Hide" : "Show"} filters
+            </button>
           </div>
         </div>
 
-        {upcomingBookings.length === 0 ? (
+        {/* Filter Panel */}
+        {showFilters && (
+          <div className="bg-gray-50 rounded-lg p-4 mb-4 border">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+              <div>
+                <label className="block text-xs font-medium text-gray-700 mb-1">
+                  City
+                </label>
+                <input
+                  type="text"
+                  value={filters.city}
+                  onChange={(e) => setFilters({...filters, city: e.target.value})}
+                  placeholder="Chicago, New York..."
+                  className="w-full text-sm border rounded px-2 py-1 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                />
+              </div>
+              
+              <div>
+                <label className="block text-xs font-medium text-gray-700 mb-1">
+                  From Date
+                </label>
+                <input
+                  type="date"
+                  value={filters.dateFrom}
+                  onChange={(e) => setFilters({...filters, dateFrom: e.target.value})}
+                  className="w-full text-sm border rounded px-2 py-1 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                />
+              </div>
+              
+              <div>
+                <label className="block text-xs font-medium text-gray-700 mb-1">
+                  To Date
+                </label>
+                <input
+                  type="date"
+                  value={filters.dateTo}
+                  onChange={(e) => setFilters({...filters, dateTo: e.target.value})}
+                  className="w-full text-sm border rounded px-2 py-1 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                />
+              </div>
+              
+              <div>
+                <label className="block text-xs font-medium text-gray-700 mb-1">
+                  Service Type
+                </label>
+                <select
+                  value={filters.lob}
+                  onChange={(e) => setFilters({...filters, lob: e.target.value})}
+                  className="w-full text-sm border rounded px-2 py-1 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                >
+                  <option value="">All services</option>
+                  <option value="HOTEL">Hotel</option>
+                  <option value="FLIGHT">Flight</option>
+                  <option value="CAR">Car</option>
+                  <option value="ACTIVITY">Activity</option>
+                </select>
+              </div>
+              
+              <div>
+                <label className="block text-xs font-medium text-gray-700 mb-1">
+                  Status
+                </label>
+                <select
+                  value={filters.status}
+                  onChange={(e) => setFilters({...filters, status: e.target.value})}
+                  className="w-full text-sm border rounded px-2 py-1 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                >
+                  <option value="">All statuses</option>
+                  <option value="ACTIVE">Active</option>
+                  <option value="PARTIALLY_CANCELLED">Partially Cancelled</option>
+                  <option value="FULLY_CANCELLED">Fully Cancelled</option>
+                </select>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {filteredBookings.length === 0 ? (
           <div className="text-sm text-gray-600">
-            No upcoming stays. 
-            <span className="text-indigo-600 hover:underline cursor-pointer ml-1">
-              Find a property
-            </span>
+            {upcomingBookings.length === 0 ? (
+              <>
+                No upcoming stays. 
+                <span className="text-indigo-600 hover:underline cursor-pointer ml-1">
+                  Find a property
+                </span>
+              </>
+            ) : (
+              <>
+                No stays match your current filters.
+                {hasActiveFilters && (
+                  <button
+                    onClick={clearFilters}
+                    className="text-indigo-600 hover:underline ml-1"
+                  >
+                    Clear filters
+                  </button>
+                )}
+              </>
+            )}
           </div>
         ) : (
           <div className="space-y-4">
-            {upcomingBookings.map(booking => {
+            {filteredBookings.map(booking => {
               const { status, color, canCancel } = getBookingStatusDisplay(booking);
               const totals = calculateBookingTotals(booking);
               const activeItems = booking.lineItems.filter(item => item.status === "ACTIVE");
