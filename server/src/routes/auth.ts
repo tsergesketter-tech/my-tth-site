@@ -13,7 +13,8 @@ router.get("/me", (req, res) => {
 });
 
 router.post("/logout", (req, res) => {
-  req.session = undefined;
+  req.session = req.session || {};
+  req.session.member = undefined;
   res.json({ ok: true });
 });
 
