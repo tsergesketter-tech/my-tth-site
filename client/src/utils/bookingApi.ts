@@ -112,18 +112,31 @@ export async function executeCancellation(
  * Helper function to get upcoming bookings (active bookings with future dates)
  */
 export function getUpcomingBookings(bookings: TripBooking[]): TripBooking[] {
-  const now = new Date();
+  const today = new Date();
+  today.setHours(0, 0, 0, 0); // Start of today for date comparison
+  
   return bookings.filter(booking => {
     // Only show active or partially cancelled bookings
     if (!["ACTIVE", "PARTIALLY_CANCELLED"].includes(booking.status)) {
       return false;
     }
 
-    // Check if any line item has a future start date
+    // If booking has no line items, check trip start date
+    if (booking.lineItems.length === 0) {
+      if (booking.tripStartDate) {
+        const tripStart = new Date(booking.tripStartDate);
+        tripStart.setHours(0, 0, 0, 0);
+        return tripStart >= today; // Include today's bookings
+      }
+      return true; // Include if no date specified
+    }
+
+    // Check if any line item has a future or current start date
     return booking.lineItems.some(item => {
       if (!item.startDate) return true; // Include if no date specified
       const startDate = new Date(item.startDate);
-      return startDate >= now;
+      startDate.setHours(0, 0, 0, 0);
+      return startDate >= today; // Include today's bookings
     });
   });
 }
