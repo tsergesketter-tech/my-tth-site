@@ -4,7 +4,7 @@ import fs from "fs";
 import dotenv from "dotenv";
 import express from "express";
 import cors from "cors";
-import cookieSession from "cookie-session";
+const cookieSession = require("cookie-session");
 
 import loyaltyRoutes from "./routes/loyalty";
 import staysRoutes from "./routes/stays";

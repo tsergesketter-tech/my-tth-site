@@ -13,7 +13,7 @@ router.get("/me", (req, res) => {
 });
 
 router.post("/logout", (req, res) => {
-  req.session = null;
+  req.session = undefined;
   res.json({ ok: true });
 });
 

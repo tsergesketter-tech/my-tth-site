@@ -10,7 +10,19 @@ import {
 import { usePointsSimulation } from "../hooks/usePointsSimulation";
 import EstimatedPoints from "../components/EstimatedPoints";
 import RedemptionForm from "../components/RedemptionForm";
-import { postStayAccrual, buildAccrualFromCheckout } from "../utils/loyaltyTransactions";
+import { 
+  postStayAccrual, 
+  buildAccrualFromCheckout,
+  postStayRedemption,
+  buildRedemptionFromCheckout
+} from "../utils/loyaltyTransactions";
+import { 
+  POINT_VALUE_USD, 
+  pointsToUSD, 
+  formatPointsAsCurrency,
+  MIN_REDEMPTION_POINTS,
+  MAX_REDEMPTION_POINTS
+} from "@teddy/shared";
 
 type Room = {
   code: string;
@@ -137,10 +149,33 @@ export default function Checkout() {
   const membershipNumber = "DL12345";
   const program = "Cars and Stays by Delta";
 
+  // === Redemption (Real implementation) ===
+  const [redeemPoints, setRedeemPoints] = useState<number>(0);
+  const [redemptionError, setRedemptionError] = useState<string | null>(null);
+  
+  // Calculate redemption credit using configurable point value
+  const redeemCredit = useMemo(
+    () => pointsToUSD(Math.max(0, redeemPoints)),
+    [redeemPoints]
+  );
+  
+  // Calculate final total after point redemption
+  const adjustedTotal = useMemo(
+    () => +(Math.max(0, price.total - redeemCredit)).toFixed(2),
+    [price.total, redeemCredit]
+  );
+
   const simInput = useMemo(() => {
     if (!stay || !checkInISO || !checkOutISO) return [];
-    const nightly = selectedRoom?.nightlyRate ?? stay.nightlyRate ?? 0;
-    if (!nightly) return [];
+    const originalNightly = selectedRoom?.nightlyRate ?? stay.nightlyRate ?? 0;
+    if (!originalNightly) return [];
+    
+    // Calculate adjusted nightly rate after redemption
+    const originalTotal = originalNightly * nights;
+    const adjustedNightly = originalTotal > 0 
+      ? (adjustedTotal / nights) 
+      : 0;
+    
     return [
       {
         stayId: stay.id,
@@ -148,7 +183,7 @@ export default function Checkout() {
         city: stay.city,
         checkInISO,
         checkOutISO,
-        nightlyRate: nightly,
+        nightlyRate: Math.max(0, adjustedNightly), // Use adjusted rate for simulation
         currency: stay.currency ?? "USD",
         nights,
       },
@@ -162,6 +197,7 @@ export default function Checkout() {
     checkInISO,
     checkOutISO,
     nights,
+    adjustedTotal, // Include adjustedTotal in dependencies
   ]);
 
   const {
@@ -176,18 +212,6 @@ export default function Checkout() {
   });
   const estimate = simInput.length ? getEstimate(simInput[0]) : null;
 
-  // === Redemption (UI only, not wired) ===
-  const [redeemPoints, setRedeemPoints] = useState<number>(0);
-  // Choose a display conversion (adjust later to your program’s rule)
-  const POINT_VALUE_USD = 0.01; // $0.01 per point (for UI preview only)
-  const redeemCredit = useMemo(
-    () => +(Math.max(0, redeemPoints) * POINT_VALUE_USD).toFixed(2),
-    [redeemPoints]
-  );
-  const adjustedTotal = useMemo(
-    () => +(Math.max(0, price.total - redeemCredit)).toFixed(2),
-    [price.total, redeemCredit]
-  );
 
   if (loading)
     return <div className="mx-auto max-w-4xl p-6">Loading checkout…</div>;
@@ -259,12 +283,12 @@ export default function Checkout() {
       // ignore booking errors, still try to post journal
     }
 
-    // 2. Post Accrual / Stay journal to Loyalty Management (kept as-is for now)
+    // 2. Post Accrual / Stay journal to Loyalty Management
     try {
       const payload = buildAccrualFromCheckout({
         bookingId,
         currency: stay?.currency ?? "USD",
-        total: price.total,
+        total: adjustedTotal, // Use final total after point redemption
         taxes: price.taxes,
         nights,
         checkInISO,
@@ -284,6 +308,31 @@ export default function Checkout() {
     } catch (err) {
       console.warn("Accrual journal failed:", err);
       // non-blocking: user still proceeds to confirmation
+    }
+
+    // 3. Post Redemption journal if points are being redeemed
+    if (redeemPoints > 0) {
+      try {
+        const redemptionPayload = buildRedemptionFromCheckout({
+          bookingId: `${bookingId}-REDEEM`,
+          points: redeemPoints,
+          nights,
+          checkInISO,
+          checkOutISO,
+          city: s.city,
+          posa: "US",
+          memberId: undefined,        // supply Program Member Id if you have it
+          destinationCountry: "US",
+          bookingDate: new Date().toISOString().slice(0, 10),
+          comment: `Point redemption for booking ${bookingId}: ${redeemPoints} points = ${formatPointsAsCurrency(redeemPoints)}`,
+        });
+
+        await postStayRedemption(redemptionPayload);
+        console.log("Redemption journal posted:", redemptionPayload);
+      } catch (err) {
+        console.warn("Redemption journal failed:", err);
+        // non-blocking: user still proceeds to confirmation
+      }
     }
 
     // 3. Navigate to confirmation page
@@ -369,9 +418,8 @@ export default function Checkout() {
             </div>
 
             {redeemPoints > 0 && (
-              <div className="text-xs text-gray-500">
-                Preview only • {redeemPoints.toLocaleString()} pts ≈ {fmt(redeemCredit)} at{" "}
-                {(POINT_VALUE_USD * 100).toFixed(2)}¢/pt
+              <div className="text-xs text-emerald-600 bg-emerald-50 px-2 py-1 rounded">
+                {redeemPoints.toLocaleString()} points = {fmt(redeemCredit)} credit applied
               </div>
             )}
           </div>
@@ -434,15 +482,42 @@ export default function Checkout() {
             </div>
             <div className="rounded-xl border p-4 shadow-sm bg-white">
               <RedemptionForm
-                bookingId={`preview-${Date.now()}`} // preview only (not wired yet)
-                maxPoints={undefined}               // pass balance when you have it
-                onPreview={(pts) => setRedeemPoints(Math.max(0, Math.floor(pts)))}
-                onSubmit={(pts) => setRedeemPoints(Math.max(0, Math.floor(pts)))}
+                bookingId={`preview-${Date.now()}`}
+                maxPoints={50000} // Demo: could fetch actual balance from member API
+                onPreview={(pts) => {
+                  setRedeemPoints(Math.max(0, Math.floor(pts)));
+                  setRedemptionError(null);
+                }}
+                onSubmit={(pts) => {
+                  const validPoints = Math.max(0, Math.floor(pts));
+                  setRedeemPoints(validPoints);
+                  setRedemptionError(null);
+                  console.log(`Points applied: ${validPoints} = ${formatPointsAsCurrency(validPoints)}`);
+                }}
               />
+              
+              {/* Redemption preview */}
               {redeemPoints > 0 && (
-                <div className="mt-2 text-sm text-gray-700">
-                  You’re previewing <strong>{redeemPoints.toLocaleString()} pts</strong> (
-                  ≈ {fmt(redeemCredit)}). Your displayed total above reflects this.
+                <div className="mt-3 p-3 bg-emerald-50 rounded-lg border border-emerald-200">
+                  <div className="text-sm text-emerald-800">
+                    <div className="font-medium">Point Redemption Applied</div>
+                    <div className="mt-1">
+                      <strong>{redeemPoints.toLocaleString()} points</strong> = <strong>{formatPointsAsCurrency(redeemPoints)}</strong> credit
+                    </div>
+                    <div className="text-xs mt-2 text-emerald-600">
+                      This redemption will be processed when you complete your booking.
+                    </div>
+                  </div>
+                </div>
+              )}
+              
+              {/* Redemption error */}
+              {redemptionError && (
+                <div className="mt-3 p-3 bg-red-50 rounded-lg border border-red-200">
+                  <div className="text-sm text-red-800">
+                    <div className="font-medium">Redemption Error</div>
+                    <div className="mt-1">{redemptionError}</div>
+                  </div>
                 </div>
               )}
             </div>

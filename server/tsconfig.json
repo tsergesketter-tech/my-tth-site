@@ -12,7 +12,8 @@
 
     "rootDirs": ["src", "../shared"],   // <-- allow compiling ../shared
     "baseUrl": ".",                     // (optional) for alias
-    "paths": { "@shared/*": ["../shared/*"] }  // (optional) alias
+    "paths": { "@shared/*": ["../shared/*"] },  // (optional) alias
+    "types": []
   },
   "include": ["src", "../shared"]
 }

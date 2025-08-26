@@ -7,12 +7,13 @@
 import { getClientCredentialsToken } from "./auth";
 
 const DEFAULT_MEMBERSHIP_NUMBER = process.env.DEFAULT_MEMBERSHIP_NUMBER || "DL12345";
-const DEFAULT_SUBTYPE = process.env.SF_JOURNAL_SUBTYPE_NAME || "Hotel";
+const DEFAULT_SUBTYPE_ACCRUAL = process.env.SF_JOURNAL_SUBTYPE_NAME || "Hotel";
+const DEFAULT_SUBTYPE_REDEMPTION = process.env.SF_JOURNAL_SUBTYPE_REDEMPTION || "Redeem Points";
 const DEFAULT_TYPE_ACCRUAL = process.env.SF_JOURNAL_TYPE_NAME_ACCRUAL || "Accrual";
 const DEFAULT_TYPE_REDEMPTION = process.env.SF_JOURNAL_TYPE_NAME_REDEMPTION || "Redemption";
 
 // Fields that should always be strings for compatibility
-const STRINGIFY_FIELDS = ["Cash_Paid__c", "Length_of_Booking__c", "Length_of_Stay__c"];
+const STRINGIFY_FIELDS = ["Cash_Paid__c", "Length_of_Booking__c", "Length_of_Stay__c", "Points_to_Redeem__c"];
 
 export type BaseStayJournal = {
   ExternalTransactionNumber: string;
@@ -81,7 +82,7 @@ async function postRealtimeJournals(
   const normalized = journals.map((j) => {
     const out: any = { ...j };
     out.JournalTypeName = out.JournalTypeName || out.journalTypeName || DEFAULT_TYPE_ACCRUAL;
-    out.JournalSubTypeName = DEFAULT_SUBTYPE;
+    out.JournalSubTypeName = out.JournalSubTypeName || DEFAULT_SUBTYPE_ACCRUAL;
     delete out.journalTypeName;
     delete out.journalSubTypeName;
     STRINGIFY_FIELDS.forEach((f) => {
@@ -129,7 +130,7 @@ export async function executeAccrualStayJournal(
   const journal: any = {
     ...base,
     JournalTypeName: (base as any).JournalTypeName || (base as any).journalTypeName || DEFAULT_TYPE_ACCRUAL,
-    JournalSubTypeName: (base as any).JournalSubTypeName || DEFAULT_SUBTYPE,
+    JournalSubTypeName: (base as any).JournalSubTypeName || DEFAULT_SUBTYPE_ACCRUAL,
   };
   delete journal.journalTypeName;
   delete journal.journalSubTypeName;
@@ -154,7 +155,7 @@ export async function executeRedemptionStayJournal(
   const journal: any = {
     ...base,
     JournalTypeName: (base as any).JournalTypeName || (base as any).journalTypeName || DEFAULT_TYPE_REDEMPTION,
-    JournalSubTypeName: (base as any).JournalSubTypeName || DEFAULT_SUBTYPE,
+    JournalSubTypeName: (base as any).JournalSubTypeName || DEFAULT_SUBTYPE_REDEMPTION,
   };
   delete journal.journalTypeName;
   delete journal.journalSubTypeName;
@@ -212,6 +213,6 @@ export function buildAccrualFromCheckout(input: {
     BookingDate: input.bookingDate ?? new Date().toISOString().slice(0, 10),
     Comment: input.comment,
     journalTypeName: DEFAULT_TYPE_ACCRUAL,
-    journalSubTypeName: DEFAULT_SUBTYPE,
+    journalSubTypeName: DEFAULT_SUBTYPE_ACCRUAL,
   };
 }
