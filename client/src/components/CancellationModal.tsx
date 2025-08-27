@@ -31,15 +31,17 @@ export default function CancellationModal({
   useEffect(() => {
     if (selectedLineItems) {
       // Pre-select specific line items if provided
-      setSelectedItems(selectedLineItems.map(item => item.id));
+      const itemIds = selectedLineItems.map(item => item.id);
+      setSelectedItems(itemIds);
       setStep('preview');
-      handlePreview(selectedLineItems.map(item => item.id));
+      handlePreview(itemIds);
     } else {
       // Reset to select mode when modal opens
       setStep('select');
       setSelectedItems([]);
       clearPreview();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen, selectedLineItems, clearPreview]);
 
   const activeLineItems = booking.lineItems.filter(item => item.status === "ACTIVE");

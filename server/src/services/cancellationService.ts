@@ -41,6 +41,17 @@ export async function createCancellationPlan(request: CancellationRequest): Prom
     throw new Error(`Booking ${request.bookingId} not found`);
   }
 
+  console.log(`[cancellation] Creating plan for booking ${booking.id}:`, {
+    lineItemCount: booking.lineItems.length,
+    lineItems: booking.lineItems.map(item => ({
+      id: item.id,
+      redemptionJournalId: item.redemptionJournalId,
+      accrualJournalId: item.accrualJournalId,
+      pointsRedeemed: item.pointsRedeemed,
+      pointsEarned: item.pointsEarned
+    }))
+  });
+
   // Determine which line items to cancel
   const lineItemsToCancel = request.lineItemIds 
     ? booking.lineItems.filter((item: any) => request.lineItemIds!.includes(item.id))
@@ -70,20 +81,25 @@ export async function createCancellationPlan(request: CancellationRequest): Prom
         console.warn(`[cancellation] Failed to get ledgers for redemption journal ${lineItem.redemptionJournalId}:`, error.message);
       }
 
+      // Calculate total points from actual ledgers for redemptions as well
+      const totalPointsFromLedgers = loyaltyLedgers.reduce((sum, ledger) => sum + Math.abs(ledger.points || 0), 0);
+      // Use the ledger total if available, otherwise fallback to line item amount
+      const refundAmount = totalPointsFromLedgers > 0 ? totalPointsFromLedgers : lineItem.pointsRedeemed;
+
       steps.push({
         type: "REDEMPTION_REFUND",
         lineItemId: lineItem.id,
         lob: lineItem.lob,
         journalId: lineItem.redemptionJournalId,
-        amount: lineItem.pointsRedeemed,
+        amount: refundAmount,
         loyaltyLedgers,
         status: "PENDING"
       });
-      totalPointsToRefund += lineItem.pointsRedeemed;
+      totalPointsToRefund += refundAmount;
     }
 
     // Step 2: Cancel accruals (points cancelled from member account)
-    if (lineItem.accrualJournalId && lineItem.pointsEarned && lineItem.pointsEarned > 0) {
+    if (lineItem.accrualJournalId) {
       let loyaltyLedgers: any[] = [];
       try {
         loyaltyLedgers = await getSalesforceTransactionJournalLedgers(lineItem.accrualJournalId);
@@ -91,16 +107,21 @@ export async function createCancellationPlan(request: CancellationRequest): Prom
         console.warn(`[cancellation] Failed to get ledgers for accrual journal ${lineItem.accrualJournalId}:`, error.message);
       }
 
+      // Calculate total points to cancel from actual ledgers
+      const totalPointsFromLedgers = loyaltyLedgers.reduce((sum, ledger) => sum + (ledger.points || 0), 0);
+      // Use the ledger total if available, otherwise fallback to line item amount
+      const cancelAmount = totalPointsFromLedgers > 0 ? totalPointsFromLedgers : (lineItem.pointsEarned || 0);
+
       steps.push({
         type: "ACCRUAL_CANCEL",
         lineItemId: lineItem.id,
         lob: lineItem.lob,
         journalId: lineItem.accrualJournalId,
-        amount: lineItem.pointsEarned,
+        amount: cancelAmount,
         loyaltyLedgers,
         status: "PENDING"
       });
-      totalPointsToCancel += lineItem.pointsEarned;
+      totalPointsToCancel += cancelAmount;
     }
 
     // Cash refund (handled through external payment processing)
