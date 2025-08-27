@@ -698,6 +698,17 @@ export async function getSalesforceTransactionJournalLedgers(transactionJournalI
     
     const { access_token, instance_url } = await getClientCredentialsToken();
     
+    // Let's try to describe the LoyaltyLedger object first to see available fields
+    const describeUrl = `${instance_url}/services/data/${DEFAULT_API_VERSION}/sobjects/LoyaltyLedger/describe`;
+    const describeResponse = await fetch(describeUrl, {
+      headers: { 'Authorization': `Bearer ${access_token}` }
+    });
+    const describeResult = await describeResponse.json();
+    
+    if (describeResponse.ok) {
+      console.log(`[sf-bookings] LoyaltyLedger available fields:`, describeResult.fields?.map((f: any) => f.name).sort());
+    }
+
     const query = `
       SELECT Id, EventType, LoyaltyProgramCurrency, Points, TransactionJournal
       FROM LoyaltyLedger
@@ -707,7 +718,7 @@ export async function getSalesforceTransactionJournalLedgers(transactionJournalI
     
     console.log(`[sf-bookings] Query: ${query}`);
     
-    // First, let's verify the transaction journal exists
+    // First, let's verify the transaction journal exists and try a simple ledger count
     const journalCheckQuery = `SELECT Id FROM TransactionJournal WHERE Id = '${transactionJournalId}'`;
     const journalCheckUrl = `${instance_url}/services/data/${DEFAULT_API_VERSION}/query?q=${encodeURIComponent(journalCheckQuery)}`;
     
@@ -717,6 +728,17 @@ export async function getSalesforceTransactionJournalLedgers(transactionJournalI
     
     const journalCheckResult = await journalCheckResponse.json();
     console.log(`[sf-bookings] Transaction journal check - Status: ${journalCheckResponse.status}, Found: ${journalCheckResult.totalSize || 0} journals`);
+    
+    // Try a simple count query first
+    const countQuery = `SELECT COUNT() FROM LoyaltyLedger WHERE TransactionJournal = '${transactionJournalId}'`;
+    const countUrl = `${instance_url}/services/data/${DEFAULT_API_VERSION}/query?q=${encodeURIComponent(countQuery)}`;
+    
+    const countResponse = await fetch(countUrl, {
+      headers: { 'Authorization': `Bearer ${access_token}` }
+    });
+    
+    const countResult = await countResponse.json();
+    console.log(`[sf-bookings] LoyaltyLedger count query - Status: ${countResponse.status}, Count: ${countResult.totalSize || 0}`);
     
     const url = `${instance_url}/services/data/${DEFAULT_API_VERSION}/query?q=${encodeURIComponent(query)}`;
     
