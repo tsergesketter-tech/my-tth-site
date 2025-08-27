@@ -699,7 +699,7 @@ export async function getSalesforceTransactionJournalLedgers(transactionJournalI
     const { access_token, instance_url } = await getClientCredentialsToken();
     
     const query = `
-      SELECT Id, Name, EventType, LoyaltyProgramCurrency, Points, TransactionJournal
+      SELECT Id, EventType, LoyaltyProgramCurrency, Points, TransactionJournal
       FROM LoyaltyLedger
       WHERE TransactionJournal = '${transactionJournalId}'
       ORDER BY CreatedDate ASC
