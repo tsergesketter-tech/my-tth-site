@@ -705,6 +705,19 @@ export async function getSalesforceTransactionJournalLedgers(transactionJournalI
       ORDER BY CreatedDate ASC
     `;
     
+    console.log(`[sf-bookings] Query: ${query}`);
+    
+    // First, let's verify the transaction journal exists
+    const journalCheckQuery = `SELECT Id FROM TransactionJournal WHERE Id = '${transactionJournalId}'`;
+    const journalCheckUrl = `${instance_url}/services/data/${DEFAULT_API_VERSION}/query?q=${encodeURIComponent(journalCheckQuery)}`;
+    
+    const journalCheckResponse = await fetch(journalCheckUrl, {
+      headers: { 'Authorization': `Bearer ${access_token}` }
+    });
+    
+    const journalCheckResult = await journalCheckResponse.json();
+    console.log(`[sf-bookings] Transaction journal check - Status: ${journalCheckResponse.status}, Found: ${journalCheckResult.totalSize || 0} journals`);
+    
     const url = `${instance_url}/services/data/${DEFAULT_API_VERSION}/query?q=${encodeURIComponent(query)}`;
     
     const response = await fetch(url, {
@@ -712,6 +725,9 @@ export async function getSalesforceTransactionJournalLedgers(transactionJournalI
     });
     
     const result = await response.json();
+    
+    console.log(`[sf-bookings] Response status: ${response.status}`);
+    console.log(`[sf-bookings] Response body:`, JSON.stringify(result, null, 2));
     
     if (!response.ok) {
       throw new Error(result.message || result[0]?.message || `HTTP ${response.status}`);
@@ -726,6 +742,9 @@ export async function getSalesforceTransactionJournalLedgers(transactionJournalI
     }));
     
     console.log(`[sf-bookings] Found ${ledgers.length} loyalty ledgers for journal ${transactionJournalId}`);
+    if (ledgers.length > 0) {
+      console.log(`[sf-bookings] Ledger details:`, JSON.stringify(ledgers, null, 2));
+    }
     
     return ledgers;
     
