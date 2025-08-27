@@ -2,6 +2,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { useSearchParams, Link } from "react-router-dom";
 import ResultCard from "../components/inventory/ResultCard";
+import PromotionBanner from "../components/PromotionBanner";
 import { usePointsSimulation } from "../hooks/usePointsSimulation"; // ⬅ add
 
 type Stay = {
@@ -134,6 +135,8 @@ export default function SearchResults() {
           Modify search
         </Link>
       </div>
+
+      <PromotionBanner />
 
       {simError && (
         <div className="mb-3 rounded-md bg-yellow-50 p-3 text-yellow-800 text-sm">
