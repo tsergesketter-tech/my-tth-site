@@ -264,20 +264,38 @@ export default function CancellationModal({
               {showPointsBreakdown && (
                 <div className="bg-gray-50 rounded-lg p-4 mb-6 text-sm">
                   <h5 className="font-medium text-gray-900 mb-3">Cancellation Steps:</h5>
-                  <div className="space-y-2">
+                  <div className="space-y-3">
                     {previewData.plan.steps.map((step, index) => (
-                      <div key={index} className="flex justify-between items-center py-2 border-b border-gray-200 last:border-b-0">
-                        <div>
-                          <span className="font-medium">
-                            {step.type === 'REDEMPTION_REFUND' ? 'Refund Redemption' : 'Cancel Accrual'}
-                          </span>
-                          <span className="text-gray-600 ml-2">
-                            ({step.lob})
-                          </span>
+                      <div key={index} className="border rounded-lg p-3 bg-white">
+                        <div className="flex justify-between items-start mb-2">
+                          <div>
+                            <span className="font-medium">
+                              {step.type === 'REDEMPTION_REFUND' ? 'Refund Redemption' : 'Cancel Accrual'}
+                            </span>
+                            <span className="text-gray-600 ml-2">
+                              ({step.lob})
+                            </span>
+                          </div>
+                          <div className={step.type === 'REDEMPTION_REFUND' ? 'text-green-600 font-medium' : 'text-yellow-600 font-medium'}>
+                            {step.type === 'REDEMPTION_REFUND' ? '+' : '-'}{step.amount.toLocaleString()} points total
+                          </div>
                         </div>
-                        <div className={step.type === 'REDEMPTION_REFUND' ? 'text-green-600' : 'text-yellow-600'}>
-                          {step.type === 'REDEMPTION_REFUND' ? '+' : '-'}{step.amount.toLocaleString()} points
-                        </div>
+                        
+                        {step.loyaltyLedgers && step.loyaltyLedgers.length > 0 && (
+                          <div className="text-xs text-gray-500 space-y-1">
+                            <div className="font-medium">Specific ledger entries to be cancelled:</div>
+                            {step.loyaltyLedgers.map((ledger) => (
+                              <div key={ledger.id} className="flex justify-between items-center pl-2">
+                                <span>
+                                  {ledger.loyaltyProgramCurrency} ({ledger.eventType})
+                                </span>
+                                <span className={step.type === 'REDEMPTION_REFUND' ? 'text-green-600' : 'text-yellow-600'}>
+                                  {step.type === 'REDEMPTION_REFUND' ? '+' : '-'}{ledger.points.toLocaleString()}
+                                </span>
+                              </div>
+                            ))}
+                          </div>
+                        )}
                       </div>
                     ))}
                   </div>

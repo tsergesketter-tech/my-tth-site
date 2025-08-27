@@ -12,7 +12,7 @@ import type {
 } from "../../../shared/bookingTypes";
 
 import { getBookingById, updateLineItemStatus } from "../data/bookings";
-import { cancelSalesforceLineItems, getSalesforceBookingById } from "../salesforce/bookings";
+import { cancelSalesforceLineItems, getSalesforceBookingById, getSalesforceTransactionJournalLedgers } from "../salesforce/bookings";
 import { getClientCredentialsToken } from "../salesforce/auth";
 
 const DEFAULT_API_VERSION = process.env.SF_API_VERSION || "v64.0";
@@ -63,12 +63,20 @@ export async function createCancellationPlan(request: CancellationRequest): Prom
 
     // Step 1: Refund redemptions first (points refunded to member)
     if (lineItem.redemptionJournalId && lineItem.pointsRedeemed && lineItem.pointsRedeemed > 0) {
+      let loyaltyLedgers: any[] = [];
+      try {
+        loyaltyLedgers = await getSalesforceTransactionJournalLedgers(lineItem.redemptionJournalId);
+      } catch (error: any) {
+        console.warn(`[cancellation] Failed to get ledgers for redemption journal ${lineItem.redemptionJournalId}:`, error.message);
+      }
+
       steps.push({
         type: "REDEMPTION_REFUND",
         lineItemId: lineItem.id,
         lob: lineItem.lob,
         journalId: lineItem.redemptionJournalId,
         amount: lineItem.pointsRedeemed,
+        loyaltyLedgers,
         status: "PENDING"
       });
       totalPointsToRefund += lineItem.pointsRedeemed;
@@ -76,12 +84,20 @@ export async function createCancellationPlan(request: CancellationRequest): Prom
 
     // Step 2: Cancel accruals (points cancelled from member account)
     if (lineItem.accrualJournalId && lineItem.pointsEarned && lineItem.pointsEarned > 0) {
+      let loyaltyLedgers: any[] = [];
+      try {
+        loyaltyLedgers = await getSalesforceTransactionJournalLedgers(lineItem.accrualJournalId);
+      } catch (error: any) {
+        console.warn(`[cancellation] Failed to get ledgers for accrual journal ${lineItem.accrualJournalId}:`, error.message);
+      }
+
       steps.push({
         type: "ACCRUAL_CANCEL",
         lineItemId: lineItem.id,
         lob: lineItem.lob,
         journalId: lineItem.accrualJournalId,
         amount: lineItem.pointsEarned,
+        loyaltyLedgers,
         status: "PENDING"
       });
       totalPointsToCancel += lineItem.pointsEarned;

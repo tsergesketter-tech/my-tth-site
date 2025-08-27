@@ -2,7 +2,7 @@
 // Integration with Salesforce custom booking objects
 
 import { getClientCredentialsToken } from "./auth";
-import type { TripBooking, BookingLineItem } from "../../../shared/bookingTypes";
+import type { TripBooking, BookingLineItem, LoyaltyLedger } from "../../../shared/bookingTypes";
 
 const DEFAULT_API_VERSION = process.env.SF_API_VERSION || "v64.0";
 
@@ -685,6 +685,52 @@ export async function getSalesforceBookingById(internalBookingId: string): Promi
     
   } catch (error: any) {
     console.error(`[sf-bookings] Error getting booking by ID ${internalBookingId}:`, error);
+    throw error;
+  }
+}
+
+/**
+ * Get LoyaltyLedger records for a specific TransactionJournal
+ */
+export async function getSalesforceTransactionJournalLedgers(transactionJournalId: string): Promise<LoyaltyLedger[]> {
+  try {
+    console.log(`[sf-bookings] Getting loyalty ledgers for transaction journal: ${transactionJournalId}`);
+    
+    const { access_token, instance_url } = await getClientCredentialsToken();
+    
+    const query = `
+      SELECT Id, Name, EventType, LoyaltyProgramCurrency, Points, TransactionJournal
+      FROM LoyaltyLedger
+      WHERE TransactionJournal = '${transactionJournalId}'
+      ORDER BY CreatedDate ASC
+    `;
+    
+    const url = `${instance_url}/services/data/${DEFAULT_API_VERSION}/query?q=${encodeURIComponent(query)}`;
+    
+    const response = await fetch(url, {
+      headers: { 'Authorization': `Bearer ${access_token}` }
+    });
+    
+    const result = await response.json();
+    
+    if (!response.ok) {
+      throw new Error(result.message || result[0]?.message || `HTTP ${response.status}`);
+    }
+    
+    const ledgers: LoyaltyLedger[] = (result.records || []).map((record: any) => ({
+      id: record.Id,
+      eventType: record.EventType,
+      loyaltyProgramCurrency: record.LoyaltyProgramCurrency,
+      points: record.Points,
+      transactionJournalId: record.TransactionJournal
+    }));
+    
+    console.log(`[sf-bookings] Found ${ledgers.length} loyalty ledgers for journal ${transactionJournalId}`);
+    
+    return ledgers;
+    
+  } catch (error: any) {
+    console.error(`[sf-bookings] Error getting loyalty ledgers for journal ${transactionJournalId}:`, error);
     throw error;
   }
 }

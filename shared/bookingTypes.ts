@@ -140,6 +140,14 @@ export type CancellationRequest = {
 export type CancellationStepType = "REDEMPTION_REFUND" | "ACCRUAL_CANCEL";
 export type CancellationStepStatus = "PENDING" | "PROCESSING" | "COMPLETED" | "FAILED";
 
+export type LoyaltyLedger = {
+  id: string; // Salesforce LoyaltyLedger ID
+  eventType: string; // Credit, Debit, etc.
+  loyaltyProgramCurrency: string; // Miles, MQDs, etc.
+  points: number;
+  transactionJournalId?: string;
+};
+
 export type CancellationStep = {
   type: CancellationStepType;
   lineItemId: string;
@@ -147,6 +155,9 @@ export type CancellationStep = {
   journalId: string; // Salesforce TransactionJournal ID
   amount: number; // Points for redemption, cash amount for accrual
   currency?: string;
+  
+  // Detailed ledger entries that will be affected
+  loyaltyLedgers?: LoyaltyLedger[];
   
   // Execution tracking
   status: CancellationStepStatus;
