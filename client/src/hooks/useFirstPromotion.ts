@@ -42,9 +42,14 @@ export function useFirstPromotion() {
           throw new Error(msg);
         }
 
+        console.log('[useFirstPromotion] API Response:', data);
+        
         // Get the first promotion from the response
-        const promotions = data?.promotions || [];
+        const promotions = data?.results || data?.promotions || [];
+        console.log('[useFirstPromotion] Extracted promotions:', promotions);
+        
         const firstPromotion = promotions.length > 0 ? promotions[0] : null;
+        console.log('[useFirstPromotion] First promotion:', firstPromotion);
         
         setPromotion(firstPromotion);
       } catch (err: any) {
