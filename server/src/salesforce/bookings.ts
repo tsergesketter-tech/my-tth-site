@@ -710,9 +710,9 @@ export async function getSalesforceTransactionJournalLedgers(transactionJournalI
     }
 
     const query = `
-      SELECT Id, EventType, LoyaltyProgramCurrency, Points, TransactionJournal
+      SELECT Id, EventType, LoyaltyProgramCurrencyId, Points, TransactionJournalId
       FROM LoyaltyLedger
-      WHERE TransactionJournal = '${transactionJournalId}'
+      WHERE TransactionJournalId = '${transactionJournalId}'
       ORDER BY CreatedDate ASC
     `;
     
@@ -730,7 +730,7 @@ export async function getSalesforceTransactionJournalLedgers(transactionJournalI
     console.log(`[sf-bookings] Transaction journal check - Status: ${journalCheckResponse.status}, Found: ${journalCheckResult.totalSize || 0} journals`);
     
     // Try a simple count query first
-    const countQuery = `SELECT COUNT() FROM LoyaltyLedger WHERE TransactionJournal = '${transactionJournalId}'`;
+    const countQuery = `SELECT COUNT() FROM LoyaltyLedger WHERE TransactionJournalId = '${transactionJournalId}'`;
     const countUrl = `${instance_url}/services/data/${DEFAULT_API_VERSION}/query?q=${encodeURIComponent(countQuery)}`;
     
     const countResponse = await fetch(countUrl, {
@@ -758,9 +758,9 @@ export async function getSalesforceTransactionJournalLedgers(transactionJournalI
     const ledgers: LoyaltyLedger[] = (result.records || []).map((record: any) => ({
       id: record.Id,
       eventType: record.EventType,
-      loyaltyProgramCurrency: record.LoyaltyProgramCurrency,
+      loyaltyProgramCurrency: record.LoyaltyProgramCurrencyId, // This is an ID, we might need to resolve the name
       points: record.Points,
-      transactionJournalId: record.TransactionJournal
+      transactionJournalId: record.TransactionJournalId
     }));
     
     console.log(`[sf-bookings] Found ${ledgers.length} loyalty ledgers for journal ${transactionJournalId}`);
