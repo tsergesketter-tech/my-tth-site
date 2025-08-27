@@ -12,7 +12,7 @@ import type {
 } from "../../../shared/bookingTypes";
 
 import { getBookingById, updateLineItemStatus } from "../data/bookings";
-import { cancelSalesforceLineItems } from "../salesforce/bookings";
+import { cancelSalesforceLineItems, getSalesforceBookingById } from "../salesforce/bookings";
 import { getClientCredentialsToken } from "../salesforce/auth";
 
 const DEFAULT_API_VERSION = process.env.SF_API_VERSION || "v64.0";
@@ -21,7 +21,22 @@ const DEFAULT_API_VERSION = process.env.SF_API_VERSION || "v64.0";
  * Create a cancellation plan with points-first priority logic
  */
 export async function createCancellationPlan(request: CancellationRequest): Promise<CancellationPlan> {
-  const booking = await getBookingById(request.bookingId);
+  let booking = null;
+  
+  // Try Salesforce first if sync is enabled
+  if (process.env.SF_SYNC_BOOKINGS === "true") {
+    try {
+      booking = await getSalesforceBookingById(request.bookingId);
+    } catch (error: any) {
+      console.warn(`[cancellation] Failed to get booking from Salesforce:`, error.message);
+    }
+  }
+  
+  // Fall back to local storage if Salesforce lookup failed
+  if (!booking) {
+    booking = await getBookingById(request.bookingId);
+  }
+  
   if (!booking) {
     throw new Error(`Booking ${request.bookingId} not found`);
   }

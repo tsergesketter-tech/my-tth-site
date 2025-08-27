@@ -634,3 +634,57 @@ export async function querySalesforceBookings(
     throw error;
   }
 }
+
+/**
+ * Get booking by internal booking ID
+ */
+export async function getSalesforceBookingById(internalBookingId: string): Promise<TripBooking | null> {
+  try {
+    console.log(`[sf-bookings] Getting booking by internal ID: ${internalBookingId}`);
+    
+    const { access_token, instance_url } = await getClientCredentialsToken();
+    
+    const query = `
+      SELECT Id, Name, External_Transaction_Number__c, Booking_Status__c, Member_Id__c, 
+             Membership_Number__c, Booking_Date__c, Trip_Start_Date__c, Trip_End_Date__c,
+             Channel__c, POS__c, Payment_Method__c, Total_Cash_Amount__c, Total_Taxes_And_Fees__c,
+             Total_Points_Redeemed__c, Total_Points_Earned__c, Internal_Booking_Id__c,
+             Created_By_System__c, Notes__c, Last_Sync_Date__c, CreatedDate, LastModifiedDate,
+             (SELECT Id, Name, Line_of_Business__c, Line_Item_Status__c, Product_Name__c,
+                     Product_Code__c, Cash_Amount__c, Points_Redeemed__c, Currency_Code__c,
+                     Taxes__c, Fees__c, Destination_City__c, Destination_Country__c,
+                     Start_Date__c, End_Date__c, Nights__c, Redemption_Journal_Id__c,
+                     Accrual_Journal_Id__c, Cancelled_Date__c, Cancellation_Reason__c,
+                     Cancelled_By__c, Internal_Line_Item_Id__c
+              FROM Booking_Line_Items__r)
+      FROM Trip_Booking__c 
+      WHERE Internal_Booking_Id__c = '${internalBookingId}'
+      LIMIT 1
+    `;
+    
+    const url = `${instance_url}/services/data/${DEFAULT_API_VERSION}/query?q=${encodeURIComponent(query)}`;
+    
+    const response = await fetch(url, {
+      headers: { 'Authorization': `Bearer ${access_token}` }
+    });
+    
+    const result = await response.json();
+    
+    if (!response.ok) {
+      throw new Error(result.message || result[0]?.message || `HTTP ${response.status}`);
+    }
+    
+    if (result.records && result.records.length > 0) {
+      const booking = convertSalesforceBookingToTripBooking(result.records[0]);
+      console.log(`[sf-bookings] Found booking by internal ID: ${booking.id} (${booking.externalTransactionNumber})`);
+      return booking;
+    }
+    
+    console.log(`[sf-bookings] No booking found with internal ID: ${internalBookingId}`);
+    return null;
+    
+  } catch (error: any) {
+    console.error(`[sf-bookings] Error getting booking by ID ${internalBookingId}:`, error);
+    throw error;
+  }
+}
