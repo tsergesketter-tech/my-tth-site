@@ -10,7 +10,7 @@ import {
   BookingSummary,
   BookingState,
   LineOfBusiness 
-} from "../../../shared/bookingTypes";
+} from "@teddy/shared";
 import { createSalesforceBooking, updateSalesforceLineItemJournals } from "../salesforce/bookings";
 
 // In-memory storage (replace with database later)

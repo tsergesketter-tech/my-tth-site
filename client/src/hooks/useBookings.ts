@@ -7,7 +7,7 @@ import type {
   CancellationRequest,
   CancellationPlan,
   CancellationResult
-} from "../../../shared/bookingTypes";
+} from "@teddy/shared";
 import { 
   fetchUserBookings,
   fetchBooking,

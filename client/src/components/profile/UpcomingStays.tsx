@@ -2,7 +2,7 @@ import { useState, useMemo } from "react";
 import { useBookings } from "../../hooks/useBookings";
 import { getBookingStatusDisplay, calculateBookingTotals } from "../../utils/bookingApi";
 import CancellationModal from "../CancellationModal";
-import type { TripBooking, BookingLineItem } from "../../../../shared/bookingTypes";
+import type { TripBooking, BookingLineItem } from "@teddy/shared";
 
 export default function UpcomingStays() {
   const { upcomingBookings, loading, error, refreshBooking } = useBookings();

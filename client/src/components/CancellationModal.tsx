@@ -2,7 +2,7 @@
 // Modal component for cancellation workflow with points-first priority preview
 
 import { useState, useEffect } from "react";
-import type { TripBooking, BookingLineItem } from "../../../shared/bookingTypes";
+import type { TripBooking, BookingLineItem } from "@teddy/shared";
 import { useCancellation } from "../hooks/useBookings";
 import { pointsToUSD } from "@teddy/shared";
 

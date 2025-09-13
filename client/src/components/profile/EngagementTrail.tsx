@@ -80,11 +80,15 @@ export default function EngagementTrail({ membershipNumber }: EngagementTrailPro
         setEnrolledPromotions(promotions);
 
         // Step 2: Filter for Engagement Trail promotions
+        // Check type, description, or name for engagement trail indicators
         const engagementTrailPromotions = promotions.filter(
-          (promo: EnrolledPromotion) => 
+          (promo: any) => 
             promo.type === 'EngagementTrail' || 
             promo.type === 'Engagement Trail' ||
-            promo.type === 'ENGAGEMENT_TRAIL'
+            promo.type === 'ENGAGEMENT_TRAIL' ||
+            promo.description === 'EngagementTrail' ||
+            promo.description?.toLowerCase().includes('engagement') ||
+            promo.name?.toLowerCase().includes('engagement trail')
         );
 
         console.log('🛤️ Engagement Trail promotions found:', engagementTrailPromotions.length);
@@ -258,38 +262,38 @@ export default function EngagementTrail({ membershipNumber }: EngagementTrailPro
         <p className="text-sm text-gray-600 mt-1">Track your progress through multi-step promotions</p>
       </div>
       
-      <div className="p-6 space-y-6">
+      <div className="p-4 space-y-4">
         {engagementTrails.map((trail) => (
-          <div key={trail.promotionId} className="border rounded-lg p-6">
+          <div key={trail.promotionId} className="border rounded-lg p-4 bg-gray-50">
             {/* Trail Header */}
-            <div className="flex items-start justify-between mb-4">
-              <div>
-                <h4 className="text-lg font-medium text-gray-900">{trail.promotionName}</h4>
+            <div className="flex items-start justify-between mb-3">
+              <div className="flex-1 min-w-0 pr-4">
+                <h4 className="text-base font-medium text-gray-900 truncate">{trail.promotionName}</h4>
                 {trail.description && (
-                  <p className="text-sm text-gray-600 mt-1">{trail.description}</p>
+                  <p className="text-xs text-gray-600 mt-1 line-clamp-2">{trail.description}</p>
                 )}
-                <div className="flex items-center gap-4 mt-2 text-xs text-gray-500">
+                <div className="flex items-center gap-3 mt-1 text-xs text-gray-500">
                   {trail.startDate && <span>Started: {formatDate(trail.startDate)}</span>}
                   {trail.endDate && <span>Ends: {formatDate(trail.endDate)}</span>}
                 </div>
               </div>
-              <div className="text-right">
+              <div className="text-right flex-shrink-0">
                 {getStatusBadge(trail.overallStatus)}
-                <div className="text-sm text-gray-600 mt-2">
-                  {trail.completedSteps} of {trail.totalSteps} steps completed
+                <div className="text-xs text-gray-600 mt-1">
+                  {trail.completedSteps}/{trail.totalSteps} steps
                 </div>
               </div>
             </div>
 
             {/* Progress Bar */}
-            <div className="mb-6">
-              <div className="flex justify-between text-sm text-gray-600 mb-2">
-                <span>Overall Progress</span>
+            <div className="mb-4">
+              <div className="flex justify-between text-xs text-gray-600 mb-1">
+                <span>Progress</span>
                 <span>{Math.round((trail.completedSteps / trail.totalSteps) * 100)}%</span>
               </div>
-              <div className="w-full bg-gray-200 rounded-full h-2">
-                <div 
-                  className="bg-indigo-600 h-2 rounded-full transition-all duration-300"
+              <div className="w-full bg-white rounded-full h-1.5">
+                <div
+                  className="bg-indigo-600 h-1.5 rounded-full transition-all duration-300"
                   style={{ width: `${(trail.completedSteps / trail.totalSteps) * 100}%` }}
                 />
               </div>
@@ -297,72 +301,78 @@ export default function EngagementTrail({ membershipNumber }: EngagementTrailPro
 
             {/* Points Summary */}
             {(trail.totalPossiblePoints || 0) > 0 && (
-              <div className="flex justify-between items-center mb-6 p-3 bg-gray-50 rounded-lg">
-                <span className="text-sm font-medium text-gray-700">Points Progress</span>
-                <span className="text-sm text-gray-900">
+              <div className="flex justify-between items-center mb-4 p-2 bg-white rounded border">
+                <span className="text-xs font-medium text-gray-700">Points</span>
+                <span className="text-xs text-gray-900">
                   <span className="font-semibold text-indigo-600">{(trail.earnedPoints || 0).toLocaleString()}</span>
-                  <span className="text-gray-500"> / {(trail.totalPossiblePoints || 0).toLocaleString()} points</span>
+                  <span className="text-gray-500"> / {(trail.totalPossiblePoints || 0).toLocaleString()}</span>
                 </span>
               </div>
             )}
 
-            {/* Steps Timeline */}
-            <div className="space-y-4">
-              <h5 className="font-medium text-gray-900">Steps</h5>
-              {(trail.steps || []).map((step, index) => (
-                <div key={step.id} className="flex items-start space-x-4">
-                  {/* Step Icon */}
-                  <div className="flex flex-col items-center">
-                    {getStepIcon(step.status)}
-                    {index < (trail.steps || []).length - 1 && (
-                      <div className={`w-px h-12 mt-2 ${
-                        step.status === 'Completed' ? 'bg-green-300' : 'bg-gray-300'
-                      }`} />
-                    )}
-                  </div>
-
-                  {/* Step Content */}
-                  <div className="flex-1 min-w-0 pb-4">
-                    <div className="flex items-center justify-between">
-                      <p className="text-sm font-medium text-gray-900">
-                        Step {step.stepNumber}: {step.name}
-                      </p>
-                      {step.rewardPoints && (
-                        <span className="text-xs text-indigo-600 font-medium">
-                          {step.rewardPoints.toLocaleString()} pts
-                        </span>
+            {/* Steps Timeline - Compact View */}
+            <div className="space-y-2">
+              <h5 className="text-sm font-medium text-gray-900">Steps ({trail.completedSteps}/{trail.totalSteps})</h5>
+              <div className="max-h-40 overflow-y-auto space-y-2">
+                {(trail.steps || []).map((step, index) => (
+                  <div key={step.id} className="flex items-center space-x-3 p-2 bg-white rounded border">
+                    {/* Step Icon - Smaller */}
+                    <div className="flex-shrink-0">
+                      {step.status === 'Completed' ? (
+                        <div className="flex items-center justify-center w-5 h-5 bg-green-500 rounded-full">
+                          <svg className="w-3 h-3 text-white" fill="currentColor" viewBox="0 0 20 20">
+                            <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                          </svg>
+                        </div>
+                      ) : step.status === 'InProgress' ? (
+                        <div className="flex items-center justify-center w-5 h-5 bg-indigo-500 rounded-full">
+                          <div className="w-2 h-2 bg-white rounded-full animate-pulse" />
+                        </div>
+                      ) : (
+                        <div className="flex items-center justify-center w-5 h-5 bg-gray-300 rounded-full">
+                          <div className="w-2 h-2 bg-white rounded-full" />
+                        </div>
                       )}
                     </div>
-                    
-                    {step.description && (
-                      <p className="text-sm text-gray-600 mt-1">{step.description}</p>
-                    )}
 
-                    {/* Progress indicator for current step */}
-                    {step.status === 'InProgress' && step.requiredCount && step.currentCount !== undefined && (
-                      <div className="mt-2">
-                        <div className="flex justify-between text-xs text-gray-600 mb-1">
-                          <span>Progress</span>
-                          <span>{step.currentCount} / {step.requiredCount}</span>
-                        </div>
-                        <div className="w-full bg-gray-200 rounded-full h-1">
-                          <div 
-                            className="bg-indigo-600 h-1 rounded-full"
-                            style={{ width: `${Math.min((step.currentCount / step.requiredCount) * 100, 100)}%` }}
-                          />
-                        </div>
+                    {/* Step Content - Compact */}
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center justify-between">
+                        <p className="text-xs font-medium text-gray-900 truncate">
+                          {step.stepNumber}. {step.name}
+                        </p>
+                        {step.rewardPoints && (
+                          <span className="text-xs text-indigo-600 font-medium ml-2">
+                            {step.rewardPoints.toLocaleString()}pts
+                          </span>
+                        )}
                       </div>
-                    )}
 
-                    {/* Completion date */}
-                    {step.status === 'Completed' && step.completedDate && (
-                      <p className="text-xs text-gray-500 mt-1">
-                        Completed on {formatDate(step.completedDate)}
-                      </p>
-                    )}
+                      {/* Progress indicator for current step - inline */}
+                      {step.status === 'InProgress' && step.requiredCount && step.currentCount !== undefined && (
+                        <div className="flex items-center mt-1 space-x-2">
+                          <div className="flex-1 bg-gray-200 rounded-full h-1">
+                            <div
+                              className="bg-indigo-600 h-1 rounded-full"
+                              style={{ width: `${Math.min((step.currentCount / step.requiredCount) * 100, 100)}%` }}
+                            />
+                          </div>
+                          <span className="text-xs text-gray-500 whitespace-nowrap">
+                            {step.currentCount}/{step.requiredCount}
+                          </span>
+                        </div>
+                      )}
+
+                      {/* Completion date - compact */}
+                      {step.status === 'Completed' && step.completedDate && (
+                        <p className="text-xs text-gray-400 mt-1">
+                          ✓ {formatDate(step.completedDate)}
+                        </p>
+                      )}
+                    </div>
                   </div>
-                </div>
-              ))}
+                ))}
+              </div>
             </div>
           </div>
         ))}

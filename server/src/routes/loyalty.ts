@@ -4,8 +4,8 @@ import { sfFetch } from '../salesforce/sfFetch';
 import { executeAccrualStayJournal, executeRedemptionStayJournal, AccrualStayJournal } from "../salesforce/journals";
 import { createBooking, getBookingByExternalTransactionNumber, updateLineItemJournalIds, updateLineItemPointsRedeemed } from "../data/bookings";
 import { linkJournalToBookingLineItem } from "../salesforce/journalBookingLink";
-import type { CreateBookingRequest } from "../../../shared/bookingTypes";
-import type { AccrualStayRequest, RedemptionStayRequest } from "../../../shared/loyaltyTypes";
+import type { CreateBookingRequest, BookingLineItem } from "@teddy/shared";
+import type { AccrualStayRequest, RedemptionStayRequest } from "@teddy/shared";
 
 // Add this augmentation to fix the session property error
 declare module 'express-serve-static-core' {
@@ -274,7 +274,7 @@ router.post("/journals/accrual-stay", async (req, res) => {
       console.log(`[loyalty/accrual-stay] Created booking ${booking.id} with line item ${lineItemId}`);
     } else {
       // Find or create hotel line item
-      const hotelItem = booking.lineItems.find(item => item.lob === "HOTEL" && item.status === "ACTIVE");
+      const hotelItem = booking.lineItems.find((item: BookingLineItem) => item.lob === "HOTEL" && item.status === "ACTIVE");
       if (hotelItem) {
         lineItemId = hotelItem.id;
       } else {
@@ -404,7 +404,7 @@ router.post("/journals/redemption-stay", async (req, res) => {
       console.log(`[loyalty/redemption-stay] Created booking ${booking.id} with line item ${lineItemId}`);
     } else {
       // Find hotel line item or use first one
-      const hotelItem = booking.lineItems.find(item => item.lob === "HOTEL" && item.status === "ACTIVE");
+      const hotelItem = booking.lineItems.find((item: BookingLineItem) => item.lob === "HOTEL" && item.status === "ACTIVE");
       lineItemId = hotelItem?.id || booking.lineItems[0]?.id;
       
       if (!lineItemId) {
@@ -1025,21 +1025,16 @@ router.get('/member/:membershipNumber/engagement-trail/:promotionId', async (req
     const { membershipNumber, promotionId } = req.params;
     console.log(`🛤️ Fetching engagement trail progress for member: ${membershipNumber}, promotion: ${promotionId}`);
 
-    const programId = process.env.SF_LOYALTY_PROGRAM;
-    if (!programId) {
-      return res.status(500).json({ error: 'Loyalty program not configured' });
-    }
+    const programName = "Cars and Stays by Delta";
 
     // Call Salesforce Connect API for Member Engagement Trail
-    const connectApiPath = `/services/data/v58.0/connect/loyalty/programs/members/${membershipNumber}/engagement-trail`;
+    // Based on: https://developer.salesforce.com/docs/atlas.en-us.loyalty.meta/loyalty/connect_resources_member_engagement_trail.htm
+    const connectApiPath = `/services/data/v63.0/loyalty/programs/${encodeURIComponent(programName)}/members/${membershipNumber}/engagement-trail?promotionId=${promotionId}`;
     
     console.log('🔗 Calling Salesforce Connect API:', connectApiPath);
     
     const response = await sfFetch(connectApiPath, {
-      method: 'POST',
-      body: JSON.stringify({
-        promotionId: promotionId
-      })
+      method: 'GET'
     });
 
     if (!response.ok) {
@@ -1059,24 +1054,49 @@ router.get('/member/:membershipNumber/engagement-trail/:promotionId', async (req
     const trailData = await response.json();
     console.log('✅ Engagement trail data received:', JSON.stringify(trailData, null, 2));
 
-    // The API response should match the documented structure from Salesforce
-    // Transform if needed to ensure consistent format
+    // Transform Salesforce response to our expected format
+    const attributes = trailData.memberEngagementAttributeOutputRepresentations || [];
+    const rewards = trailData.rewards?.[0] || {};
+    const totalPossiblePoints = rewards.pointsRewards?.[0]?.points || 0;
+    
+    // Transform attributes to steps
+    const steps = attributes.map((attr: any, index: number) => {
+      const currentValue = parseFloat(attr.currentValue || '0');
+      const targetValue = parseFloat(attr.targetValue || '1');
+      const isCompleted = currentValue >= targetValue;
+      
+      return {
+        id: `step-${index + 1}`,
+        name: attr.name,
+        description: attr.description || `Complete ${attr.name}`,
+        stepNumber: index + 1,
+        status: isCompleted ? 'Completed' : (currentValue > 0 ? 'InProgress' : 'NotStarted'),
+        completedDate: isCompleted ? attr.startDate : undefined,
+        requiredCount: targetValue,
+        currentCount: currentValue,
+        rewardPoints: Math.floor(totalPossiblePoints / attributes.length) // Distribute points evenly
+      };
+    });
+    
+    const completedSteps = steps.filter((s: any) => s.status === 'Completed').length;
+    const inProgressSteps = steps.filter((s: any) => s.status === 'InProgress').length;
+    
     const transformedData = {
       promotionId: promotionId,
-      promotionName: trailData.promotionName || trailData.name,
-      description: trailData.description,
-      startDate: trailData.startDate,
-      endDate: trailData.endDate,
-      totalSteps: trailData.totalSteps || trailData.steps?.length || 0,
-      completedSteps: trailData.completedSteps || 
-        trailData.steps?.filter((s: any) => s.status === 'Completed').length || 0,
-      currentStepNumber: trailData.currentStepNumber,
-      overallStatus: trailData.overallStatus || trailData.status,
-      enrollmentDate: trailData.enrollmentDate,
-      completionDate: trailData.completionDate,
-      totalPossiblePoints: trailData.totalPossiblePoints,
-      earnedPoints: trailData.earnedPoints,
-      steps: trailData.steps || []
+      promotionName: trailData.promotionName || 'Engagement Trail',
+      description: 'Complete all steps to earn bonus rewards',
+      startDate: attributes[0]?.startDate,
+      endDate: attributes[0]?.endDate,
+      totalSteps: attributes.length,
+      completedSteps: completedSteps,
+      currentStepNumber: completedSteps + 1,
+      overallStatus: completedSteps === attributes.length ? 'Completed' : 
+                    (completedSteps > 0 || inProgressSteps > 0 ? 'InProgress' : 'NotStarted'),
+      enrollmentDate: attributes[0]?.startDate,
+      completionDate: completedSteps === attributes.length ? new Date().toISOString() : undefined,
+      totalPossiblePoints: totalPossiblePoints,
+      earnedPoints: Math.floor((completedSteps / attributes.length) * totalPossiblePoints),
+      steps: steps
     };
 
     res.json(transformedData);

@@ -1,7 +1,7 @@
 // client/src/utils/loyaltyTransactions.ts
 
 
-import type { AccrualStayRequest, RedemptionStayRequest } from "../../../shared/loyaltyTypes";
+import type { AccrualStayRequest, RedemptionStayRequest } from "@teddy/shared";
 
 /**
  * --------------------------
