@@ -948,6 +948,152 @@ router.post('/simulate', async (req, res) => {
   }
 });
 
+// Get member enrolled promotions
+router.get('/member/:membershipNumber/enrolled-promotions', async (req, res) => {
+  try {
+    const { membershipNumber } = req.params;
+    console.log(`📋 Fetching enrolled promotions for member: ${membershipNumber}`);
+
+    const programId = process.env.SF_LOYALTY_PROGRAM;
+    if (!programId) {
+      return res.status(500).json({ error: 'Loyalty program not configured' });
+    }
+
+    // Query for member's enrolled promotions using SOQL
+    const soqlQuery = `
+      SELECT 
+        Id, 
+        PromotionId, 
+        Promotion.Name,
+        Promotion.Description,
+        Promotion.PromotionType,
+        Promotion.StartDate,
+        Promotion.EndDate,
+        EnrollmentDate,
+        Status,
+        LastModifiedDate
+      FROM PromotionEnrollment 
+      WHERE LoyaltyProgramMember.MembershipNumber = '${membershipNumber}'
+        AND Status IN ('Active', 'Enrolled', 'InProgress')
+      ORDER BY EnrollmentDate DESC
+    `;
+
+    const response = await sfFetch(`/services/data/v58.0/query?q=${encodeURIComponent(soqlQuery)}`, {
+      method: 'GET'
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('❌ Salesforce query failed:', errorText);
+      return res.status(response.status).json({ 
+        error: 'Failed to fetch enrolled promotions',
+        details: errorText 
+      });
+    }
+
+    const data = await response.json();
+    console.log(`✅ Found ${data.totalSize} enrolled promotions for member ${membershipNumber}`);
+
+    // Transform the data to match our expected format
+    const promotions = data.records.map((record: any) => ({
+      id: record.PromotionId,
+      name: record.Promotion.Name,
+      description: record.Promotion.Description,
+      type: record.Promotion.PromotionType,
+      status: record.Status,
+      enrollmentDate: record.EnrollmentDate,
+      startDate: record.Promotion.StartDate,
+      endDate: record.Promotion.EndDate,
+      lastModifiedDate: record.LastModifiedDate,
+      enrollmentId: record.Id
+    }));
+
+    res.json({
+      membershipNumber,
+      totalPromotions: promotions.length,
+      promotions
+    });
+
+  } catch (error: any) {
+    console.error('❌ Error fetching enrolled promotions:', error.message);
+    res.status(500).json({ 
+      error: 'Failed to fetch enrolled promotions',
+      details: error.message 
+    });
+  }
+});
+
+// Get engagement trail progress for a specific promotion
+router.get('/member/:membershipNumber/engagement-trail/:promotionId', async (req, res) => {
+  try {
+    const { membershipNumber, promotionId } = req.params;
+    console.log(`🛤️ Fetching engagement trail progress for member: ${membershipNumber}, promotion: ${promotionId}`);
+
+    const programId = process.env.SF_LOYALTY_PROGRAM;
+    if (!programId) {
+      return res.status(500).json({ error: 'Loyalty program not configured' });
+    }
+
+    // Call Salesforce Connect API for Member Engagement Trail
+    const connectApiPath = `/services/data/v58.0/connect/loyalty/programs/members/${membershipNumber}/engagement-trail`;
+    
+    console.log('🔗 Calling Salesforce Connect API:', connectApiPath);
+    
+    const response = await sfFetch(connectApiPath, {
+      method: 'POST',
+      body: JSON.stringify({
+        promotionId: promotionId
+      })
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('❌ Engagement trail API failed:', errorText);
+      
+      if (response.status === 404) {
+        return res.status(404).json({ error: 'Engagement trail not found for this promotion' });
+      }
+      
+      return res.status(response.status).json({ 
+        error: 'Failed to fetch engagement trail progress',
+        details: errorText 
+      });
+    }
+
+    const trailData = await response.json();
+    console.log('✅ Engagement trail data received:', JSON.stringify(trailData, null, 2));
+
+    // The API response should match the documented structure from Salesforce
+    // Transform if needed to ensure consistent format
+    const transformedData = {
+      promotionId: promotionId,
+      promotionName: trailData.promotionName || trailData.name,
+      description: trailData.description,
+      startDate: trailData.startDate,
+      endDate: trailData.endDate,
+      totalSteps: trailData.totalSteps || trailData.steps?.length || 0,
+      completedSteps: trailData.completedSteps || 
+        trailData.steps?.filter((s: any) => s.status === 'Completed').length || 0,
+      currentStepNumber: trailData.currentStepNumber,
+      overallStatus: trailData.overallStatus || trailData.status,
+      enrollmentDate: trailData.enrollmentDate,
+      completionDate: trailData.completionDate,
+      totalPossiblePoints: trailData.totalPossiblePoints,
+      earnedPoints: trailData.earnedPoints,
+      steps: trailData.steps || []
+    };
+
+    res.json(transformedData);
+
+  } catch (error: any) {
+    console.error('❌ Error fetching engagement trail progress:', error.message);
+    res.status(500).json({ 
+      error: 'Failed to fetch engagement trail progress',
+      details: error.message
+    });
+  }
+});
+
 export default router;
 
 

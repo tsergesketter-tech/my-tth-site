@@ -11,6 +11,7 @@ import VouchersList from "../components/profile/VouchersList";
 import BadgesGrid from "../components/profile/BadgesGrid";
 import UpcomingStays from "../components/profile/UpcomingStays";
 import PartnerShortcuts from "../components/profile/PartnerShortcuts";
+import EngagementTrail from "../components/profile/EngagementTrail";
 
 export default function MemberPage() {
   return (
@@ -70,7 +71,13 @@ export default function MemberPage() {
         </div>
       </section>
 
-      {/* Row 3: Transaction history (existing) */}
+      {/* Row 3: Engagement Trails */}
+      <section aria-labelledby="engagement-trails">
+        <h2 id="engagement-trails" className="sr-only">Engagement Trails</h2>
+        <EngagementTrail membershipNumber="DL12345" />
+      </section>
+
+      {/* Row 4: Transaction history (existing) */}
       <section aria-labelledby="txn-history" className="space-y-3">
         <div className="flex items-center justify-between">
           <h2 id="txn-history" className="text-xl font-semibold text-gray-900">
@@ -83,7 +90,7 @@ export default function MemberPage() {
         <TransactionHistory />
       </section>
 
-      {/* Row 4: Partner shortcuts */}
+      {/* Row 5: Partner shortcuts */}
       <section aria-labelledby="partners-shortcuts">
         <h2 id="partners-shortcuts" className="sr-only">Partners</h2>
         <PartnerShortcuts />
