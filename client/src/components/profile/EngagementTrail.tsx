@@ -19,13 +19,13 @@ type EngagementTrailProgress = {
   promotionId: string;
   promotionName: string;
   description?: string;
-  startDate: string;
-  endDate: string;
+  startDate?: string;
+  endDate?: string;
   totalSteps: number;
   completedSteps: number;
-  currentStepNumber: number;
+  currentStepNumber?: number;
   overallStatus: 'NotStarted' | 'InProgress' | 'Completed' | 'Expired';
-  steps: EngagementTrailStep[];
+  steps?: EngagementTrailStep[];
   enrollmentDate?: string;
   completionDate?: string;
   totalPossiblePoints?: number;
@@ -296,12 +296,12 @@ export default function EngagementTrail({ membershipNumber }: EngagementTrailPro
             </div>
 
             {/* Points Summary */}
-            {trail.totalPossiblePoints > 0 && (
+            {(trail.totalPossiblePoints || 0) > 0 && (
               <div className="flex justify-between items-center mb-6 p-3 bg-gray-50 rounded-lg">
                 <span className="text-sm font-medium text-gray-700">Points Progress</span>
                 <span className="text-sm text-gray-900">
-                  <span className="font-semibold text-indigo-600">{trail.earnedPoints.toLocaleString()}</span>
-                  <span className="text-gray-500"> / {trail.totalPossiblePoints.toLocaleString()} points</span>
+                  <span className="font-semibold text-indigo-600">{(trail.earnedPoints || 0).toLocaleString()}</span>
+                  <span className="text-gray-500"> / {(trail.totalPossiblePoints || 0).toLocaleString()} points</span>
                 </span>
               </div>
             )}
@@ -309,12 +309,12 @@ export default function EngagementTrail({ membershipNumber }: EngagementTrailPro
             {/* Steps Timeline */}
             <div className="space-y-4">
               <h5 className="font-medium text-gray-900">Steps</h5>
-              {trail.steps.map((step, index) => (
+              {(trail.steps || []).map((step, index) => (
                 <div key={step.id} className="flex items-start space-x-4">
                   {/* Step Icon */}
                   <div className="flex flex-col items-center">
                     {getStepIcon(step.status)}
-                    {index < trail.steps.length - 1 && (
+                    {index < (trail.steps || []).length - 1 && (
                       <div className={`w-px h-12 mt-2 ${
                         step.status === 'Completed' ? 'bg-green-300' : 'bg-gray-300'
                       }`} />
