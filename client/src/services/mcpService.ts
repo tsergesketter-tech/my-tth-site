@@ -1,10 +1,11 @@
 // Marketing Cloud Personalization Service
 import { mcpConfig, MCPEventType } from '../config/mcpConfig';
 
-// Extend Window interface to include MCP
+// Extend Window interface to include MCP/Evergage
 declare global {
   interface Window {
     SalesforceInteractions?: any;
+    Evergage?: any;
     _et_debug_level?: number;
   }
 }
@@ -47,6 +48,13 @@ class MCPService {
   }
 
   /**
+   * Get the available SDK instance (SalesforceInteractions or Evergage)
+   */
+  private getSDK(): any {
+    return window.SalesforceInteractions || window.Evergage;
+  }
+
+  /**
    * Load the MCP SDK script
    */
   private loadSDK(): Promise<void> {
@@ -55,18 +63,18 @@ class MCPService {
     }
 
     this.initPromise = new Promise((resolve, reject) => {
-      // Check if SDK is already loaded
-      if (window.SalesforceInteractions) {
+      // Check if SDK is already loaded (either SalesforceInteractions or Evergage)
+      if (window.SalesforceInteractions || window.Evergage) {
         this.isInitialized = true;
         resolve();
         return;
       }
 
-      // Create script tag
+      // Create script tag - using your specific Evergage integration
       const script = document.createElement('script');
       script.type = 'text/javascript';
       script.async = true;
-      script.src = `https://${mcpConfig.region}.sitecore.net/api/js/dataset/${mcpConfig.dataset}`;
+      script.src = '//cdn.evgnet.com/beacon/tsergesketter523012158/tth_site/scripts/evergage.min.js';
 
       script.onload = () => {
         this.isInitialized = true;
@@ -89,24 +97,25 @@ class MCPService {
    * Configure MCP SDK after loading
    */
   private configure(): void {
-    if (!window.SalesforceInteractions) return;
-
-    const si = window.SalesforceInteractions;
+    const sdk = this.getSDK();
+    if (!sdk) return;
 
     // Set debug mode
     if (mcpConfig.debug) {
       window._et_debug_level = 2;
-      si.setDebug(true);
+      if (sdk.setDebug) {
+        sdk.setDebug(true);
+      }
     }
 
     // Configure cookie domain
-    if (mcpConfig.cookieDomain) {
-      si.setCookieDomain(mcpConfig.cookieDomain);
+    if (mcpConfig.cookieDomain && sdk.setCookieDomain) {
+      sdk.setCookieDomain(mcpConfig.cookieDomain);
     }
 
     // Auto page tracking
-    if (mcpConfig.enableAutoPageTracking) {
-      si.setAutoPageTracking(true);
+    if (mcpConfig.enableAutoPageTracking && sdk.setAutoPageTracking) {
+      sdk.setAutoPageTracking(true);
     }
 
     console.log('[MCP] SDK configured successfully');
@@ -119,11 +128,18 @@ class MCPService {
     await this.loadSDK();
     
     return new Promise((resolve) => {
-      if (window.SalesforceInteractions) {
-        window.SalesforceInteractions.ready(() => {
-          console.log('[MCP] SDK ready');
+      const sdk = this.getSDK();
+      if (sdk) {
+        if (sdk.ready) {
+          sdk.ready(() => {
+            console.log('[MCP] SDK ready');
+            resolve();
+          });
+        } else {
+          // If ready method not available, resolve immediately
+          console.log('[MCP] SDK ready (immediate)');
           resolve();
-        });
+        }
       }
     });
   }
@@ -132,7 +148,8 @@ class MCPService {
    * Track page view
    */
   trackPageView(pageData?: Record<string, any>): void {
-    if (!this.isInitialized || !window.SalesforceInteractions) return;
+    const sdk = this.getSDK();
+    if (!this.isInitialized || !sdk) return;
 
     const data = {
       path: window.location.pathname,
@@ -142,15 +159,18 @@ class MCPService {
       ...pageData,
     };
 
-    window.SalesforceInteractions.track('pageView', data);
-    console.log('[MCP] Page view tracked:', data);
+    if (sdk.track) {
+      sdk.track('pageView', data);
+      console.log('[MCP] Page view tracked:', data);
+    }
   }
 
   /**
    * Identify user
    */
   identifyUser(user: MCPUser): void {
-    if (!this.isInitialized || !window.SalesforceInteractions) return;
+    const sdk = this.getSDK();
+    if (!this.isInitialized || !sdk) return;
 
     const userData = {
       userId: user.id,
@@ -165,15 +185,18 @@ class MCPService {
       },
     };
 
-    window.SalesforceInteractions.setUser(userData);
-    console.log('[MCP] User identified:', userData);
+    if (sdk.setUser) {
+      sdk.setUser(userData);
+      console.log('[MCP] User identified:', userData);
+    }
   }
 
   /**
    * Track custom event
    */
   trackEvent(event: MCPEvent): void {
-    if (!this.isInitialized || !window.SalesforceInteractions) return;
+    const sdk = this.getSDK();
+    if (!this.isInitialized || !sdk) return;
 
     // If user data is provided, identify user first
     if (event.user) {
@@ -185,8 +208,10 @@ class MCPService {
       timestamp: new Date().toISOString(),
     };
 
-    window.SalesforceInteractions.track(event.type, eventData);
-    console.log(`[MCP] Event tracked: ${event.type}`, eventData);
+    if (sdk.track) {
+      sdk.track(event.type, eventData);
+      console.log(`[MCP] Event tracked: ${event.type}`, eventData);
+    }
   }
 
   /**
@@ -276,18 +301,21 @@ class MCPService {
    * Add catalog items (for personalization targeting)
    */
   addCatalogItem(item: MCPCatalogItem): void {
-    if (!this.isInitialized || !window.SalesforceInteractions) return;
+    const sdk = this.getSDK();
+    if (!this.isInitialized || !sdk) return;
 
-    window.SalesforceInteractions.catalogItem(item.id, {
-      name: item.name,
-      category: item.category,
-      price: item.price,
-      currency: item.currency,
-      description: item.description,
-      imageUrl: item.imageUrl,
-      url: item.url,
-      ...item.attributes,
-    });
+    if (sdk.catalogItem) {
+      sdk.catalogItem(item.id, {
+        name: item.name,
+        category: item.category,
+        price: item.price,
+        currency: item.currency,
+        description: item.description,
+        imageUrl: item.imageUrl,
+        url: item.url,
+        ...item.attributes,
+      });
+    }
   }
 
   /**
@@ -295,14 +323,19 @@ class MCPService {
    */
   getCampaigns(): Promise<any[]> {
     return new Promise((resolve) => {
-      if (!this.isInitialized || !window.SalesforceInteractions) {
+      const sdk = this.getSDK();
+      if (!this.isInitialized || !sdk) {
         resolve([]);
         return;
       }
 
-      window.SalesforceInteractions.getCampaigns((campaigns: any[]) => {
-        resolve(campaigns || []);
-      });
+      if (sdk.getCampaigns) {
+        sdk.getCampaigns((campaigns: any[]) => {
+          resolve(campaigns || []);
+        });
+      } else {
+        resolve([]);
+      }
     });
   }
 
@@ -311,14 +344,19 @@ class MCPService {
    */
   executeCampaign(campaignId: string, element?: HTMLElement): Promise<any> {
     return new Promise((resolve) => {
-      if (!this.isInitialized || !window.SalesforceInteractions) {
+      const sdk = this.getSDK();
+      if (!this.isInitialized || !sdk) {
         resolve(null);
         return;
       }
 
-      window.SalesforceInteractions.executeCampaign(campaignId, element, (result: any) => {
-        resolve(result);
-      });
+      if (sdk.executeCampaign) {
+        sdk.executeCampaign(campaignId, element, (result: any) => {
+          resolve(result);
+        });
+      } else {
+        resolve(null);
+      }
     });
   }
 }

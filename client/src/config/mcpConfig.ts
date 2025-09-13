@@ -8,16 +8,16 @@ export interface MCPConfig {
   enableAutoPageTracking?: boolean;
 }
 
-// MCP Configuration - Update these values with your actual MCP settings
+// MCP Configuration - Based on your Evergage integration
 export const mcpConfig: MCPConfig = {
-  // Replace with your actual dataset name from MCP
-  dataset: process.env.REACT_APP_MCP_DATASET || 'your-dataset-name',
+  // Your dataset from the integration URL
+  dataset: process.env.REACT_APP_MCP_DATASET || 'tth_site',
   
-  // Replace with your region (e.g., 'us', 'eu', 'ap')
-  region: process.env.REACT_APP_MCP_REGION || 'us',
+  // Your account ID from the integration URL
+  region: process.env.REACT_APP_MCP_REGION || 'tsergesketter523012158',
   
-  // Optional: Custom tracking domain
-  trackingDomain: process.env.REACT_APP_MCP_TRACKING_DOMAIN,
+  // Custom tracking domain from your integration
+  trackingDomain: process.env.REACT_APP_MCP_TRACKING_DOMAIN || 'cdn.evgnet.com',
   
   // Enable debug mode in development
   debug: process.env.NODE_ENV === 'development',
