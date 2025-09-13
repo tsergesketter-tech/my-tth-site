@@ -11,6 +11,7 @@ import {
 import React, { ReactNode } from "react";
 import Header from "./components/Header";
 import Footer from "./components/Footer";
+import "./styles/evergage.css";
 import Home from "./pages/Home";
 import Promotions from "./pages/Promotions";
 import MemberPage from "./pages/Member";
