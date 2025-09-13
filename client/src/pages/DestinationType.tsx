@@ -81,37 +81,56 @@ export default function DestinationType() {
           name: travelType.name,
           heroImage: travelType.heroImage
         });
+
+        // Debug available SDK methods
+        console.log('📋 Available SDK methods:', Object.keys(SDK));
         
-        // Send event with user attributes - this is the correct way
-        SDK.sendEvent({
-          interaction: {
-            name: 'selectTravelPreference',
-            travelType: travelType.id,
-            travelTypeName: travelType.name,
-            preferredKeywords: travelType.keywords,
-            heroImage: travelType.heroImage,
-            timestamp: new Date().toISOString()
-          },
-          user: {
-            attributes: {
-              travelPreference: travelType.id,
-              preferredHeroImage: travelType.heroImage,
-              travelKeywords: travelType.keywords.join(','),
-              preferenceUpdatedAt: new Date().toISOString()
+        try {
+          // Send event with user attributes
+          SDK.sendEvent({
+            interaction: {
+              name: 'selectTravelPreference',
+              travelType: travelType.id,
+              travelTypeName: travelType.name,
+              preferredKeywords: travelType.keywords,
+              heroImage: travelType.heroImage,
+              timestamp: new Date().toISOString()
+            },
+            user: {
+              attributes: {
+                travelPreference: travelType.id,
+                preferredHeroImage: travelType.heroImage,
+                travelKeywords: travelType.keywords.join(','),
+                preferenceUpdatedAt: new Date().toISOString()
+              }
             }
-          }
-        });
+          });
+          console.log('✅ Event sent successfully');
 
-        // Alternative method - set user identity with attributes
-        SDK.setUserIdentity({
-          attributes: {
-            travelPreference: travelType.id,
-            preferredHeroImage: travelType.heroImage,
-            travelKeywords: travelType.keywords.join(',')
+          // Set user attributes using available method
+          if (typeof SDK.setUserAttribute === 'function') {
+            SDK.setUserAttribute('travelPreference', travelType.id);
+            SDK.setUserAttribute('preferredHeroImage', travelType.heroImage);
+            SDK.setUserAttribute('travelKeywords', travelType.keywords.join(','));
+            console.log('✅ User attributes set via setUserAttribute');
+          } else if (typeof SDK.setUser === 'function') {
+            SDK.setUser({
+              attributes: {
+                travelPreference: travelType.id,
+                preferredHeroImage: travelType.heroImage,
+                travelKeywords: travelType.keywords.join(',')
+              }
+            });
+            console.log('✅ User attributes set via setUser');
+          } else {
+            console.log('ℹ️ No user attribute methods available, relying on sendEvent');
           }
-        });
 
-        console.log('✅ Travel preference data sent to Evergage');
+          console.log('✅ Travel preference data sent to Evergage');
+        } catch (sdkError) {
+          console.error('❌ Error calling Evergage SDK:', sdkError);
+          throw sdkError;
+        }
       } else {
         console.warn('⚠️ Evergage SDK not found - preference not sent');
       }
