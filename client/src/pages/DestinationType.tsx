@@ -76,7 +76,13 @@ export default function DestinationType() {
       if (window.SalesforceInteractions || window.Evergage) {
         const SDK = window.SalesforceInteractions || window.Evergage;
         
-        // Set user preferences
+        console.log('🎯 Sending travel preference to Evergage:', {
+          travelType: travelType.id,
+          name: travelType.name,
+          heroImage: travelType.heroImage
+        });
+        
+        // Send event with user attributes - this is the correct way
         SDK.sendEvent({
           interaction: {
             name: 'selectTravelPreference',
@@ -85,13 +91,29 @@ export default function DestinationType() {
             preferredKeywords: travelType.keywords,
             heroImage: travelType.heroImage,
             timestamp: new Date().toISOString()
+          },
+          user: {
+            attributes: {
+              travelPreference: travelType.id,
+              preferredHeroImage: travelType.heroImage,
+              travelKeywords: travelType.keywords.join(','),
+              preferenceUpdatedAt: new Date().toISOString()
+            }
           }
         });
 
-        // Store preference for personalization
-        SDK.setUserField('travelPreference', travelType.id);
-        SDK.setUserField('preferredHeroImage', travelType.heroImage);
-        SDK.setUserField('travelKeywords', travelType.keywords.join(','));
+        // Alternative method - set user identity with attributes
+        SDK.setUserIdentity({
+          attributes: {
+            travelPreference: travelType.id,
+            preferredHeroImage: travelType.heroImage,
+            travelKeywords: travelType.keywords.join(',')
+          }
+        });
+
+        console.log('✅ Travel preference data sent to Evergage');
+      } else {
+        console.warn('⚠️ Evergage SDK not found - preference not sent');
       }
 
       // Store in localStorage as backup
