@@ -51,11 +51,11 @@ app.use((_req, res, next) => {
   // Content Security Policy - Allow Evergage/MCP domains
   res.setHeader('Content-Security-Policy', 
     "default-src 'self'; " +
-    "script-src 'self' 'unsafe-inline' 'unsafe-eval' cdn.evgnet.com cdn.evergage.com *.evgnet.com *.evergage.com; " +
-    "style-src 'self' 'unsafe-inline'; " +
-    "img-src 'self' data: https: cdn.evgnet.com cdn.evergage.com *.evgnet.com *.evergage.com; " +
+    "script-src 'self' 'unsafe-inline' 'unsafe-eval' cdn.evgnet.com cdn.evergage.com *.evgnet.com *.evergage.com *.us-7.evergage.com; " +
+    "style-src 'self' 'unsafe-inline' cdn.evgnet.com cdn.evergage.com *.evgnet.com *.evergage.com *.us-7.evergage.com; " +
+    "img-src 'self' data: https: cdn.evgnet.com cdn.evergage.com *.evgnet.com *.evergage.com *.us-7.evergage.com; " +
     "font-src 'self' data:; " +
-    "connect-src 'self' https: cdn.evgnet.com cdn.evergage.com *.evgnet.com *.evergage.com wss:; " +
+    "connect-src 'self' https: cdn.evgnet.com cdn.evergage.com *.evgnet.com *.evergage.com *.us-7.evergage.com wss:; " +
     "frame-ancestors 'none'"
   );
   
