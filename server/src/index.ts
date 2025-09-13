@@ -48,14 +48,14 @@ app.use(
 
 // Security headers
 app.use((_req, res, next) => {
-  // Content Security Policy
+  // Content Security Policy - Allow Evergage/MCP domains
   res.setHeader('Content-Security-Policy', 
     "default-src 'self'; " +
-    "script-src 'self' 'unsafe-inline' 'unsafe-eval'; " +
+    "script-src 'self' 'unsafe-inline' 'unsafe-eval' cdn.evgnet.com cdn.evergage.com *.evgnet.com *.evergage.com; " +
     "style-src 'self' 'unsafe-inline'; " +
-    "img-src 'self' data: https:; " +
+    "img-src 'self' data: https: cdn.evgnet.com cdn.evergage.com *.evgnet.com *.evergage.com; " +
     "font-src 'self' data:; " +
-    "connect-src 'self' https:; " +
+    "connect-src 'self' https: cdn.evgnet.com cdn.evergage.com *.evgnet.com *.evergage.com wss:; " +
     "frame-ancestors 'none'"
   );
   
