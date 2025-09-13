@@ -948,43 +948,28 @@ router.post('/simulate', async (req, res) => {
   }
 });
 
-// Get member enrolled promotions
+// Get member enrolled promotions using the existing "Get Member Promotions" process
 router.get('/member/:membershipNumber/enrolled-promotions', async (req, res) => {
   try {
     const { membershipNumber } = req.params;
     console.log(`📋 Fetching enrolled promotions for member: ${membershipNumber}`);
 
-    const programId = process.env.SF_LOYALTY_PROGRAM;
-    if (!programId) {
-      return res.status(500).json({ error: 'Loyalty program not configured' });
-    }
+    const program = 'Cars and Stays by Delta';
+    const processName = 'Get Member Promotions';
 
-    // Query for member's enrolled promotions using SOQL
-    const soqlQuery = `
-      SELECT 
-        Id, 
-        PromotionId, 
-        Promotion.Name,
-        Promotion.Description,
-        Promotion.PromotionType,
-        Promotion.StartDate,
-        Promotion.EndDate,
-        EnrollmentDate,
-        Status,
-        LastModifiedDate
-      FROM PromotionEnrollment 
-      WHERE LoyaltyProgramMember.MembershipNumber = '${membershipNumber}'
-        AND Status IN ('Active', 'Enrolled', 'InProgress')
-      ORDER BY EnrollmentDate DESC
-    `;
+    // Use the same process endpoint as the offers component
+    const path = `/services/data/v64.0/connect/loyalty/programs/${encodeURIComponent(program)}/program-processes/${encodeURIComponent(processName)}`;
 
-    const response = await sfFetch(`/services/data/v58.0/query?q=${encodeURIComponent(soqlQuery)}`, {
-      method: 'GET'
+    const processParameters = [{ MembershipNumber: membershipNumber }];
+
+    const response = await sfFetch(path, {
+      method: 'POST',
+      body: JSON.stringify({ processParameters }),
     });
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error('❌ Salesforce query failed:', errorText);
+      console.error('❌ Get Member Promotions failed:', errorText);
       return res.status(response.status).json({ 
         error: 'Failed to fetch enrolled promotions',
         details: errorText 
@@ -992,21 +977,32 @@ router.get('/member/:membershipNumber/enrolled-promotions', async (req, res) => 
     }
 
     const data = await response.json();
-    console.log(`✅ Found ${data.totalSize} enrolled promotions for member ${membershipNumber}`);
+    console.log('✅ Get Member Promotions response:', JSON.stringify(data, null, 2));
 
-    // Transform the data to match our expected format
-    const promotions = data.records.map((record: any) => ({
-      id: record.PromotionId,
-      name: record.Promotion.Name,
-      description: record.Promotion.Description,
-      type: record.Promotion.PromotionType,
-      status: record.Status,
-      enrollmentDate: record.EnrollmentDate,
-      startDate: record.Promotion.StartDate,
-      endDate: record.Promotion.EndDate,
-      lastModifiedDate: record.LastModifiedDate,
-      enrollmentId: record.Id
+    const results = data?.outputParameters?.outputParameters?.results ?? 
+                   data?.outputParameters?.results ?? 
+                   data?.results ?? 
+                   [];
+
+    // Filter for promotions that are enrolled/active and potentially engagement trails
+    // Note: We'll filter for engagement trails in the client component after getting all promotions
+    const promotions = results.map((promo: any) => ({
+      id: promo.promotionId,
+      name: promo.promotionName || promo.name,
+      description: promo.description,
+      type: promo.promotionType || promo.type, // This should help identify Engagement Trail types
+      status: promo.enrollmentStatus || promo.status || 'Active', // Assume active if enrolled
+      enrollmentDate: promo.enrollmentDate,
+      startDate: promo.startDate,
+      endDate: promo.endDate,
+      eligibility: promo.memberEligibilityCategory,
+      enrollmentRequired: promo.promotionEnrollmentRqr,
+      imageUrl: promo.promotionImageUrl,
+      // Keep raw data for debugging
+      _raw: promo
     }));
+
+    console.log(`✅ Found ${promotions.length} promotions for member ${membershipNumber}`);
 
     res.json({
       membershipNumber,
