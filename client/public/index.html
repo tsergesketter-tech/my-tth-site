@@ -26,6 +26,28 @@
       Learn how to configure a non-root public URL by running `npm run build`.
     -->
     <title>React App</title>
+    
+    <!-- Evergage/MCP SDK -->
+    <script type="text/javascript" src="//cdn.evgnet.com/beacon/tsergesketter523012158/tth_site/scripts/evergage.min.js"></script>
+    
+    <!-- Evergage Initialization -->
+    <script type="text/javascript">
+      // Wait for Evergage to load, then initialize
+      window.addEventListener('load', function() {
+        if (window.SalesforceInteractions || window.Evergage) {
+          const SDK = window.SalesforceInteractions || window.Evergage;
+          console.log('✅ Evergage SDK loaded successfully');
+          
+          // Initialize tracking
+          SDK.init({
+            cookieDomain: window.location.hostname,
+            trackAnonymousVisitors: true
+          });
+        } else {
+          console.warn('⚠️ Evergage SDK failed to load');
+        }
+      });
+    </script>
   </head>
   <body>
     <script type="text/javascript">
