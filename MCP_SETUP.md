@@ -13,24 +13,30 @@ The implementation includes:
 
 ## Configuration
 
-### Environment Variables
+### Your Evergage Integration
 
-Add these to your `.env` files:
+The implementation is pre-configured for your specific Evergage setup:
+
+- **Dataset**: `tth_site`
+- **Account ID**: `tsergesketter523012158` 
+- **CDN**: `cdn.evgnet.com`
+- **Script**: `//cdn.evgnet.com/beacon/tsergesketter523012158/tth_site/scripts/evergage.min.js`
+
+### Environment Variables (Optional)
+
+You can override defaults in your `.env` files:
 
 ```bash
-# MCP Configuration
-REACT_APP_MCP_DATASET=your-dataset-name
-REACT_APP_MCP_REGION=us
-REACT_APP_MCP_TRACKING_DOMAIN=your-tracking-domain.com
+# MCP Configuration (already configured for your setup)
+REACT_APP_MCP_DATASET=tth_site
+REACT_APP_MCP_REGION=tsergesketter523012158
+REACT_APP_MCP_TRACKING_DOMAIN=cdn.evgnet.com
 REACT_APP_MCP_COOKIE_DOMAIN=.yourdomain.com
 ```
 
-### MCP Dataset Setup
+### Ready to Use
 
-1. **Get your dataset name** from MCP admin
-2. **Set your region** (us, eu, ap)
-3. **Configure tracking domain** (optional)
-4. **Set cookie domain** for cross-subdomain tracking
+✅ **No additional setup required!** The implementation uses your existing Evergage integration script and will work immediately.
 
 ## Features Implemented
 
@@ -122,24 +128,38 @@ The following zones are implemented:
 
 ## Next Steps
 
-1. **Configure MCP Dataset**
-   - Update environment variables with real values
-   - Test SDK loading and tracking
+### 🚀 **Immediate Actions**
 
-2. **Create Campaigns**
-   - Set up campaigns in MCP admin
-   - Configure targeting rules
+1. **Deploy to Production**
+   - The implementation is ready to deploy
+   - Will automatically load your Evergage script
+   - Start tracking user behavior immediately
+
+2. **Verify Tracking** (Check in Evergage/MCP admin)
+   - Page views should appear in real-time
+   - User login events will be tracked
+   - Search and view events will populate
+
+3. **Create Personalization Campaigns**
+   - Set up campaigns targeting the personalization zones:
+     - `search-hero`, `search-results-top`, `search-results-bottom`
+   - Configure audience segments
    - Design personalized content
 
-3. **Test Implementation**
-   - Verify user identification
-   - Check event tracking
-   - Test personalization zones
+### 🧪 **Testing the Implementation**
 
-4. **Advanced Features**
+Once deployed, you can test by:
+1. Opening browser dev tools
+2. Navigating the site - watch for `[MCP]` console logs
+3. Logging in - should see user identification logs
+4. Searching for stays - should see search event tracking
+5. Viewing stay details - should see view tracking
+
+### 🎯 **Advanced Features** (Future)
    - Server-side rendering support
    - A/B testing integration
    - Advanced segmentation
+   - Cross-device tracking
 
 ## Troubleshooting
 
