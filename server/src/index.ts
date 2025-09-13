@@ -54,9 +54,9 @@ app.use((_req, res, next) => {
     "script-src 'self' 'unsafe-inline' 'unsafe-eval' cdn.evgnet.com cdn.evergage.com *.evgnet.com *.evergage.com *.us-7.evergage.com; " +
     "style-src 'self' 'unsafe-inline' cdn.evgnet.com cdn.evergage.com *.evgnet.com *.evergage.com *.us-7.evergage.com; " +
     "img-src 'self' data: https: cdn.evgnet.com cdn.evergage.com *.evgnet.com *.evergage.com *.us-7.evergage.com; " +
-    "font-src 'self' data:; " +
+    "font-src 'self' data: cdn.evgnet.com cdn.evergage.com *.evgnet.com *.evergage.com *.us-7.evergage.com; " +
     "connect-src 'self' https: cdn.evgnet.com cdn.evergage.com *.evgnet.com *.evergage.com *.us-7.evergage.com wss:; " +
-    "frame-ancestors 'none'"
+    "frame-ancestors 'self' *.evergage.com *.us-7.evergage.com"
   );
   
   // Security headers
