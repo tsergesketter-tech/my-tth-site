@@ -132,13 +132,19 @@ export default function AvailableOffers() {
         return;
       }
 
+      console.log('[AvailableOffers] API Response:', data);
+      
       const results: Promotion[] = Array.isArray(data)
         ? data
         : Array.isArray(data?.results)
         ? data.results
         : [];
 
+      console.log('[AvailableOffers] Extracted results:', results);
+      console.log('[AvailableOffers] Mock promotions:', MOCK_PROMOTIONS);
+
       const combined = [...results, ...MOCK_PROMOTIONS];
+      console.log('[AvailableOffers] Combined promotions:', combined);
       setPromos(combined);
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : String(e));

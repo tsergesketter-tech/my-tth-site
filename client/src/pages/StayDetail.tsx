@@ -4,6 +4,8 @@ import { useParams, Link, useSearchParams } from "react-router-dom";
 import { useSearch } from "../context/SearchContext";
 import { usePointsSimulation } from "../hooks/usePointsSimulation";
 import EstimatedPoints from "../components/EstimatedPoints";
+import { useMCP } from "../hooks/useMCP";
+import { PersonalizationZone } from "../components/personalization/PersonalizationZone";
 
 type Room = { code: string; name: string; nightlyRate: number; refundable: boolean };
 type StayDetail = {
@@ -28,6 +30,9 @@ export default function StayDetail() {
   const { id } = useParams<{ id: string }>();
   const [params] = useSearchParams();
   const { search } = useSearch();
+  
+  // MCP tracking
+  const { trackEvent, isReady } = useMCP({ autoInit: true });
 
   // Pull guests + nights from URL → context → fallback
   const guests = params.get("guests") || (search.guests ? String(search.guests) : "1");
@@ -84,6 +89,26 @@ export default function StayDetail() {
           data = await fetchAndValidate(`${apiBase}/api/stays/by-slug/${encodeURIComponent(id)}`);
         }
         setStay(data);
+        
+        // Track stay view event
+        if (isReady && data) {
+          trackEvent({
+            type: 'viewStay',
+            data: {
+              stayId: data.id,
+              stayName: data.name,
+              city: data.city,
+              nightlyRate: data.nightlyRate,
+              currency: data.currency || 'USD',
+              category: 'accommodation',
+              rating: data.rating,
+              checkIn: checkInISO,
+              checkOut: checkOutISO,
+              nights: nights,
+              guests: Number(guests),
+            },
+          });
+        }
       } catch (e: any) {
         setError(e.message || "Failed to load stay");
         setStay(null);
