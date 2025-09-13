@@ -4,8 +4,12 @@ import SearchBar from './SearchBar';
 const Hero = () => {
   return (
     <section
-      className="relative w-full h-[600px] bg-cover bg-center"
-      style={{ backgroundImage: "url('/images/santorini.jpg')" }}
+      id="hero-section"
+      className="relative w-full bg-cover bg-center"
+      style={{ 
+        backgroundImage: "url('/images/santorini.jpg')",
+        minHeight: '600px'
+      }}
     >
       <div className="absolute inset-0 bg-black bg-opacity-30" />
 
