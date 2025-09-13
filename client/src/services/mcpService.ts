@@ -44,6 +44,20 @@ class MCPService {
   private initPromise: Promise<void> | null = null;
 
   constructor() {
+    // Listen for CSP violations to help debug
+    if (document) {
+      document.addEventListener('securitypolicyviolation', (e) => {
+        if (e.sourceFile?.includes('evergage') || e.sourceFile?.includes('evgnet')) {
+          console.error('[MCP] CSP violation detected:', {
+            blockedURI: e.blockedURI,
+            violatedDirective: e.violatedDirective,
+            sourceFile: e.sourceFile,
+            lineNumber: e.lineNumber
+          });
+        }
+      });
+    }
+    
     this.loadSDK();
   }
 
@@ -63,6 +77,7 @@ class MCPService {
     }
 
     this.initPromise = new Promise((resolve, reject) => {
+      console.log('[MCP] Loading SDK...');
       // Check if SDK is already loaded (either SalesforceInteractions or Evergage)
       if (window.SalesforceInteractions || window.Evergage) {
         this.isInitialized = true;
@@ -82,8 +97,11 @@ class MCPService {
         resolve();
       };
 
-      script.onerror = () => {
-        reject(new Error('Failed to load Marketing Cloud Personalization SDK'));
+      script.onerror = (error) => {
+        console.error('[MCP] SDK loading failed:', error);
+        console.error('[MCP] Script URL:', script.src);
+        console.error('[MCP] Check CSP settings and network connectivity');
+        reject(new Error('Failed to load Marketing Cloud Personalization SDK. Check CSP settings and console for details.'));
       };
 
       // Add to document head
