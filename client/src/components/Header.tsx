@@ -23,6 +23,9 @@ export default function Header() {
         <NavLink to="/" end className={navClass}>
           Book
         </NavLink>
+        <NavLink to="/destination-type" className={navClass}>
+          Preferences
+        </NavLink>
         <NavLink to="/promotions" className={navClass}>
           Offers
         </NavLink>

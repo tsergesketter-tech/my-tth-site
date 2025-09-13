@@ -20,6 +20,7 @@ import SearchResults from "./pages/SearchResults";
 import Checkout from "./pages/Checkout";
 import Confirmation from "./pages/Confirmation";
 import StayDetail from "./pages/StayDetail";
+import DestinationType from "./pages/DestinationType";
 import LoginCard, { useAuth } from "./components/LoginCard";
 
 // --- Protect routes ---
@@ -77,6 +78,7 @@ export default function App() {
       <Routes>
         {/* Public */}
         <Route path="/" element={<Home />} />
+        <Route path="/destination-type" element={<DestinationType />} />
         <Route path="/promotions" element={<Promotions />} />
         <Route path="/credit-cards" element={<CreditCards />} />
         <Route path="/search" element={<SearchResults />} />
