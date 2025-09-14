@@ -56,7 +56,7 @@ export default function SearchBar() {
     return CITY_OPTIONS.filter((c) => c.toLowerCase().includes(q)).slice(0, 8);
   }, [location]);
 
-  // Close list on outside click
+  // Close list on outside click and manage overflow class
   useEffect(() => {
     function onDocClick(e: MouseEvent) {
       if (wrapRef.current && !wrapRef.current.contains(e.target as Node)) {
@@ -69,6 +69,25 @@ export default function SearchBar() {
     document.addEventListener("mousedown", onDocClick);
     return () => document.removeEventListener("mousedown", onDocClick);
   }, []);
+
+  // Manage overflow class on hero section for dropdown visibility
+  useEffect(() => {
+    const heroSection = document.querySelector('.evergage-hero-section');
+    if (heroSection) {
+      if (openList || openCal) {
+        heroSection.classList.add('dropdown-open');
+      } else {
+        heroSection.classList.remove('dropdown-open');
+      }
+    }
+
+    return () => {
+      const heroSection = document.querySelector('.evergage-hero-section');
+      if (heroSection) {
+        heroSection.classList.remove('dropdown-open');
+      }
+    };
+  }, [openList, openCal]);
 
   // Helpers
   function buildQuery(params: Record<string, string | number | undefined>) {
@@ -142,6 +161,7 @@ export default function SearchBar() {
       className="w-full bg-white rounded-2xl shadow p-4 grid grid-cols-1 md:grid-cols-5 gap-3"
       role="search"
       aria-label="Stay search"
+      style={{ position: 'relative' }}
     >
       {/* Location + typeahead */}
       <div className="md:col-span-2 relative" ref={wrapRef}>
@@ -166,7 +186,8 @@ export default function SearchBar() {
           <ul
             id="typeahead-listbox"
             role="listbox"
-            className="absolute z-30 mt-2 max-h-80 w-full overflow-auto rounded-xl border border-gray-200 bg-white shadow-lg"
+            className="absolute z-[9999] mt-2 max-h-80 w-full overflow-auto rounded-xl border border-gray-200 bg-white shadow-lg"
+            style={{ top: '100%', left: 0, right: 0 }}
           >
             {suggestions.map((city, idx) => (
               <li
@@ -220,7 +241,7 @@ export default function SearchBar() {
         </button>
 
         {openCal && (
-          <div className="absolute z-40 mt-2 w-[320px] rounded-xl border border-gray-200 bg-white p-3 shadow-xl">
+          <div className="absolute z-[9999] mt-2 w-[320px] max-w-[calc(100vw-2rem)] rounded-xl border border-gray-200 bg-white p-3 shadow-xl right-0 md:right-auto md:left-0">
             <DayPicker
               mode="range"
               selected={range}

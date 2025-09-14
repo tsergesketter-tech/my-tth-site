@@ -6,6 +6,16 @@
   overflow: hidden;
 }
 
+/* Allow dropdowns to escape overflow when search components are active */
+.evergage-hero-section:has(.absolute.z-[9999]) {
+  overflow: visible;
+}
+
+/* Fallback for browsers that don't support :has() */
+.evergage-hero-section.dropdown-open {
+  overflow: visible;
+}
+
 /* Evergage injection zones */
 .evergage-zone {
   position: absolute;
