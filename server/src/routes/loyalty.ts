@@ -36,6 +36,68 @@ router.get("/__ping", (_req, res) => {
   res.json({ ok: true, at: "/api/loyalty/__ping" });
 });
 
+// POST /api/loyalty/eligible-promotions - Get eligible promotions for cart
+router.post("/eligible-promotions", async (req, res) => {
+  try {
+    console.log(`[loyalty/eligible-promotions] POST - cart details:`, JSON.stringify(req.body, null, 2));
+
+    const cartRequest = req.body;
+
+    if (!cartRequest?.cart?.cartDetails) {
+      return res.status(400).json({
+        error: "Invalid request format",
+        details: "Expected cart.cartDetails in request body"
+      });
+    }
+
+    // Call Salesforce Global Promotions Management API
+    // Based on: https://developer.salesforce.com/docs/atlas.en-us.loyalty.meta/loyalty/connect_resources_eligible_promotions.htm
+    const apiPath = `/services/data/v64.0/global-promotions-management/eligible-promotions`;
+
+    console.log(`[loyalty/eligible-promotions] Calling Salesforce API: ${apiPath}`);
+
+    const response = await sfFetch(apiPath, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(cartRequest)
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error(`[loyalty/eligible-promotions] Salesforce API failed ${response.status}:`, errorText);
+      return res.status(response.status).json({
+        error: "Failed to fetch eligible promotions",
+        details: errorText,
+        salesforceStatus: response.status
+      });
+    }
+
+    const promotionsData = await response.json();
+    console.log(`[loyalty/eligible-promotions] Salesforce response:`, JSON.stringify(promotionsData, null, 2));
+
+    // Transform the response to include promotion calculations
+    const transformedResponse = {
+      ...promotionsData,
+      _meta: {
+        requestedAt: new Date().toISOString(),
+        sourceApi: "salesforce-global-promotions",
+        apiVersion: "v64.0"
+      }
+    };
+
+    res.json(transformedResponse);
+
+  } catch (error: any) {
+    console.error(`[loyalty/eligible-promotions] Error:`, error);
+    res.status(500).json({
+      error: "Internal server error fetching eligible promotions",
+      message: error.message
+    });
+  }
+});
+
 // GET /api/loyalty/member/:membershipNumber/vouchers - Fetch member vouchers from Salesforce
 router.get("/member/:membershipNumber/vouchers", async (req, res) => {
   try {

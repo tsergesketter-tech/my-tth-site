@@ -8,8 +8,10 @@ import {
 } from "react-router-dom";
 
 import { usePointsSimulation } from "../hooks/usePointsSimulation";
+import { useEligiblePromotions } from "../hooks/useEligiblePromotions";
 import EstimatedPoints from "../components/EstimatedPoints";
 import RedemptionForm from "../components/RedemptionForm";
+import PromotionDisplay from "../components/PromotionDisplay";
 import { 
   postStayAccrual, 
   buildAccrualFromCheckout,
@@ -149,6 +151,33 @@ export default function Checkout() {
   const membershipNumber = "DL12345";
   const program = "Cars and Stays by Delta";
 
+  // === Eligible Promotions ===
+  const promotions = useEligiblePromotions({
+    membershipNumber,
+    debugMode: false
+  });
+
+  // Fetch promotions when stay and pricing are available
+  useEffect(() => {
+    if (stay && !loading && price.total > 0) {
+      const stayForPromotion = {
+        id: stay.id,
+        name: stay.name,
+        pricePerNight: selectedRoom?.nightlyRate || stay.nightlyRate || 0,
+        checkIn: checkInISO
+      };
+
+      promotions.fetchPromotionsForStay(stayForPromotion, nights);
+    }
+  }, [stay, loading, price.total, nights, selectedRoom, checkInISO]);
+
+  // Calculate final price with promotions applied
+  const promotionDiscount = promotions.calculation?.totalDiscount || 0;
+  const priceAfterPromotions = useMemo(
+    () => Math.max(0, price.total - promotionDiscount),
+    [price.total, promotionDiscount]
+  );
+
   // === Redemption (Real implementation) ===
   const [redeemPoints, setRedeemPoints] = useState<number>(0);
   const [redemptionError, setRedemptionError] = useState<string | null>(null);
@@ -159,10 +188,10 @@ export default function Checkout() {
     [redeemPoints]
   );
   
-  // Calculate final total after point redemption
+  // Calculate final total after promotions and point redemption
   const adjustedTotal = useMemo(
-    () => +(Math.max(0, price.total - redeemCredit)).toFixed(2),
-    [price.total, redeemCredit]
+    () => +(Math.max(0, priceAfterPromotions - redeemCredit)).toFixed(2),
+    [priceAfterPromotions, redeemCredit]
   );
 
   const simInput = useMemo(() => {
@@ -389,6 +418,20 @@ export default function Checkout() {
       <div className="grid gap-6 md:grid-cols-3">
         {/* Order summary */}
         <aside className="md:col-span-1">
+          {/* Promotions Display */}
+          {promotions.hasPromotions && promotions.calculation && (
+            <div className="mb-4">
+              <PromotionDisplay
+                promotions={promotions.promotions}
+                appliedPromotions={promotions.calculation.appliedPromotions}
+                originalAmount={price.total}
+                finalAmount={priceAfterPromotions}
+                totalDiscount={promotionDiscount}
+                loading={promotions.loading}
+              />
+            </div>
+          )}
+
         <div className="rounded-2xl bg-white p-5 shadow">
           <div className="text-sm text-gray-600">{s.city}</div>
           <div className="font-semibold text-gray-900">{s.name}</div>
@@ -422,6 +465,14 @@ export default function Checkout() {
               </div>
             )}
 
+            {/* Promotion discount */}
+            {promotionDiscount > 0 && (
+              <div className="flex justify-between text-green-700">
+                <span>Promotion discount</span>
+                <span>-{fmt(promotionDiscount)}</span>
+              </div>
+            )}
+
             {/* Points credit (UI only) */}
             {redeemPoints > 0 && (
               <div className="flex justify-between text-emerald-700">
@@ -432,7 +483,7 @@ export default function Checkout() {
 
             <div className="mt-2 border-t pt-2 flex justify-between font-semibold text-gray-900">
               <span>{redeemPoints > 0 ? "Pay today" : "Total"}</span>
-              <span>{fmt(redeemPoints > 0 ? adjustedTotal : price.total)}</span>
+              <span>{fmt(redeemPoints > 0 ? adjustedTotal : priceAfterPromotions)}</span>
             </div>
 
             {redeemPoints > 0 && (
