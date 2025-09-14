@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { DEMO_VOUCHERS, type Voucher } from "../../data/memberDemo";
 import { fetchMemberVouchers } from "../../utils/vouchersApi";
+import { ensureSession } from "../../utils/auth";
 
 const statusColors: Record<Voucher["status"], string> = {
   Active: "bg-emerald-100 text-emerald-800",
@@ -27,6 +28,10 @@ export default function VouchersList({ useDemoData = false }: VouchersListProps)
       try {
         setLoading(true);
         setError(null);
+
+        // Ensure we have a valid member session before making the API call
+        await ensureSession();
+
         const response = await fetchMemberVouchers();
         setVouchers(response.vouchers);
       } catch (err: any) {
