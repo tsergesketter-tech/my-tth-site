@@ -6,6 +6,18 @@
   overflow: hidden;
 }
 
+/* Personalizable zone styling */
+.evergage-personalizable-zone {
+  position: relative;
+  z-index: 10;
+}
+
+/* Protected zone - should not be touched by Evergage */
+.evergage-protected-zone {
+  position: relative;
+  z-index: 15; /* Higher than personalizable zone */
+}
+
 /* Allow dropdowns to escape overflow when search components are active */
 .evergage-hero-section:has(.absolute.z-[9999]) {
   overflow: visible;
