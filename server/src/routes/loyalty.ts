@@ -38,12 +38,16 @@ router.get("/__ping", (_req, res) => {
 
 // GET /api/loyalty/vouchers - Fetch member vouchers from Salesforce
 router.get("/vouchers", async (req, res) => {
+  console.log(`[loyalty/vouchers] GET - Full session object:`, JSON.stringify(req.session, null, 2));
   console.log(`[loyalty/vouchers] GET - member: ${req.session?.member?.membershipNumber}`);
-  
+  console.log(`[loyalty/vouchers] GET - req.member: ${req.member?.membershipNumber}`);
+
   try {
     const { membershipNumber, memberId, program } = sessionMembership(req);
-    
+    console.log(`[loyalty/vouchers] sessionMembership result:`, { membershipNumber, memberId, program });
+
     if (!membershipNumber) {
+      console.log(`[loyalty/vouchers] No membershipNumber found - returning 401`);
       return res.status(401).json({ error: "Member session required" });
     }
 
