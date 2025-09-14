@@ -39,9 +39,15 @@ router.get("/__ping", (_req, res) => {
 // POST /api/loyalty/eligible-promotions - Get eligible promotions for cart
 router.post("/eligible-promotions", async (req, res) => {
   try {
-    console.log(`[loyalty/eligible-promotions] POST - cart details:`, JSON.stringify(req.body, null, 2));
-
     const cartRequest = req.body;
+    console.log(`[loyalty/eligible-promotions] POST - cart details:`, JSON.stringify(cartRequest, null, 2));
+
+    // Log the specific product codes being sent
+    const cartDetails = cartRequest?.cart?.cartDetails?.[0];
+    if (cartDetails?.cartLineDetails?.[0]) {
+      const lineItem = cartDetails.cartLineDetails[0];
+      console.log(`[loyalty/eligible-promotions] Product codes - Code: ${lineItem.cartLineProductCode}, SKU: ${lineItem.cartLineProductStockKeepingUnit}, Product: ${lineItem.cartLineProduct}`);
+    }
 
     if (!cartRequest?.cart?.cartDetails) {
       return res.status(400).json({

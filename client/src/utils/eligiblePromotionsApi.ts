@@ -85,6 +85,22 @@ export async function getEligiblePromotions(
 }
 
 /**
+ * Map city names to location codes for promotions
+ */
+function getCityCode(city: string): string {
+  const cityMapping: Record<string, string> = {
+    'New York': 'NY',
+    'Chicago': 'CHI',
+    'Seattle': 'SEA',
+    'Los Angeles': 'LAX',
+    'Miami': 'MIA',
+    'Boston': 'BOS'
+  };
+
+  return cityMapping[city] || city.toUpperCase().substring(0, 3);
+}
+
+/**
  * Create a cart request from booking/stay data
  */
 export function createCartRequestFromStay(
@@ -96,6 +112,9 @@ export function createCartRequestFromStay(
     ? new Date(stay.checkIn).toISOString()
     : new Date().toISOString();
 
+  // Get the city code for product identification
+  const cityCode = getCityCode(stay.city || '');
+
   return {
     cart: {
       cartDetails: [{
@@ -105,8 +124,8 @@ export function createCartRequestFromStay(
         transactionAmount: stay.pricePerNight * quantity,
         cartLineDetails: [{
           cartLineProduct: stay.name || 'Hotel Stay',
-          cartLineProductCode: stay.id || 'HOTEL_STAY',
-          cartLineProductStockKeepingUnit: stay.id || 'HOTEL_SKU',
+          cartLineProductCode: cityCode,
+          cartLineProductStockKeepingUnit: cityCode,
           cartLineItemQuantity: quantity,
           cartLineItemAmount: stay.pricePerNight,
           cartLineProductCatalog: 'Hotels'
