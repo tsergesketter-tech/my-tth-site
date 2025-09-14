@@ -51,22 +51,23 @@ router.get("/vouchers", async (req, res) => {
       return res.status(401).json({ error: "Member session required" });
     }
 
-    // Try different Salesforce Loyalty API patterns - the exact endpoint varies
-    const programId = process.env.SF_LOYALTY_PROGRAM;
-    if (!programId) {
-      return res.status(500).json({ error: "Loyalty program not configured" });
-    }
+    // Use the correct Salesforce Loyalty API pattern for vouchers
+    const programName = "Cars and Stays by Delta";
 
-    // Try multiple endpoint patterns based on Salesforce documentation variations
+    // Based on Salesforce Loyalty API documentation and user feedback
     const endpointAttempts = [
-      `/services/data/v60.0/connect/loyalty/programs/${encodeURIComponent(programId)}/members/${membershipNumber}/vouchers`,
-      `/services/data/v58.0/connect/loyalty/programs/${encodeURIComponent(programId)}/members/${membershipNumber}/vouchers`,
-      `/services/data/v60.0/loyalty/programs/${encodeURIComponent(programId)}/members/${membershipNumber}/vouchers`,
-      `/services/data/v58.0/loyalty/programs/${encodeURIComponent(programId)}/members/${membershipNumber}/vouchers`,
-      // Try with member ID instead of membership number if configured
+      `/services/data/v63.0/loyalty/programs/${encodeURIComponent(programName)}/members/${membershipNumber}/vouchers`,
+      `/services/data/v60.0/loyalty/programs/${encodeURIComponent(programName)}/members/${membershipNumber}/vouchers`,
+      `/services/data/v58.0/loyalty/programs/${encodeURIComponent(programName)}/members/${membershipNumber}/vouchers`,
+      // Connect API patterns as fallback
+      `/services/data/v63.0/connect/loyalty/programs/${encodeURIComponent(programName)}/members/${membershipNumber}/vouchers`,
+      `/services/data/v60.0/connect/loyalty/programs/${encodeURIComponent(programName)}/members/${membershipNumber}/vouchers`,
+      `/services/data/v58.0/connect/loyalty/programs/${encodeURIComponent(programName)}/members/${membershipNumber}/vouchers`,
+      // Try with member ID if available
       ...(memberId ? [
-        `/services/data/v60.0/connect/loyalty/programs/${encodeURIComponent(programId)}/members/${memberId}/vouchers`,
-        `/services/data/v58.0/connect/loyalty/programs/${encodeURIComponent(programId)}/members/${memberId}/vouchers`
+        `/services/data/v63.0/loyalty/programs/${encodeURIComponent(programName)}/members/${memberId}/vouchers`,
+        `/services/data/v60.0/loyalty/programs/${encodeURIComponent(programName)}/members/${memberId}/vouchers`,
+        `/services/data/v58.0/loyalty/programs/${encodeURIComponent(programName)}/members/${memberId}/vouchers`
       ] : [])
     ];
 

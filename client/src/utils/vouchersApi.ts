@@ -16,6 +16,10 @@ type VouchersResponse = {
  * Fetch vouchers for the authenticated member from Salesforce
  */
 export async function fetchMemberVouchers(): Promise<VouchersResponse> {
+  // First, make sure we have a valid session
+  const { ensureSession } = await import('./auth');
+  await ensureSession();
+
   const response = await fetch('/api/loyalty/vouchers', {
     method: 'GET',
     credentials: 'include', // Include session cookies
@@ -27,8 +31,8 @@ export async function fetchMemberVouchers(): Promise<VouchersResponse> {
   if (!response.ok) {
     const errorData = await response.json().catch(() => ({}));
     throw new Error(
-      errorData.error || 
-      errorData.message || 
+      errorData.error ||
+      errorData.message ||
       `Failed to fetch vouchers: ${response.status} ${response.statusText}`
     );
   }
