@@ -128,7 +128,7 @@ export function createCartRequestFromStay(
           cartLineProductStockKeepingUnit: cityCode,
           cartLineItemQuantity: quantity,
           cartLineItemAmount: stay.pricePerNight,
-          cartLineProductCatalog: 'Hotels'
+          cartLineProductCatalog: 'Expedia Stay Catalog'
         }]
       }]
     }
