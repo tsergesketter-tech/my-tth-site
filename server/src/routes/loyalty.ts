@@ -36,19 +36,14 @@ router.get("/__ping", (_req, res) => {
   res.json({ ok: true, at: "/api/loyalty/__ping" });
 });
 
-// GET /api/loyalty/vouchers - Fetch member vouchers from Salesforce
-router.get("/vouchers", async (req, res) => {
-  console.log(`[loyalty/vouchers] GET - Full session object:`, JSON.stringify(req.session, null, 2));
-  console.log(`[loyalty/vouchers] GET - member: ${req.session?.member?.membershipNumber}`);
-  console.log(`[loyalty/vouchers] GET - req.member: ${req.member?.membershipNumber}`);
-
+// GET /api/loyalty/member/:membershipNumber/vouchers - Fetch member vouchers from Salesforce
+router.get("/member/:membershipNumber/vouchers", async (req, res) => {
   try {
-    const { membershipNumber, memberId, program } = sessionMembership(req);
-    console.log(`[loyalty/vouchers] sessionMembership result:`, { membershipNumber, memberId, program });
+    const { membershipNumber } = req.params;
+    console.log(`[loyalty/vouchers] Fetching vouchers for member: ${membershipNumber}`);
 
     if (!membershipNumber) {
-      console.log(`[loyalty/vouchers] No membershipNumber found - returning 401`);
-      return res.status(401).json({ error: "Member session required" });
+      return res.status(400).json({ error: "Member number is required" });
     }
 
     // Use the correct Salesforce Loyalty API pattern for vouchers
@@ -62,13 +57,7 @@ router.get("/vouchers", async (req, res) => {
       // Connect API patterns as fallback
       `/services/data/v63.0/connect/loyalty/programs/${encodeURIComponent(programName)}/members/${membershipNumber}/vouchers`,
       `/services/data/v60.0/connect/loyalty/programs/${encodeURIComponent(programName)}/members/${membershipNumber}/vouchers`,
-      `/services/data/v58.0/connect/loyalty/programs/${encodeURIComponent(programName)}/members/${membershipNumber}/vouchers`,
-      // Try with member ID if available
-      ...(memberId ? [
-        `/services/data/v63.0/loyalty/programs/${encodeURIComponent(programName)}/members/${memberId}/vouchers`,
-        `/services/data/v60.0/loyalty/programs/${encodeURIComponent(programName)}/members/${memberId}/vouchers`,
-        `/services/data/v58.0/loyalty/programs/${encodeURIComponent(programName)}/members/${memberId}/vouchers`
-      ] : [])
+      `/services/data/v58.0/connect/loyalty/programs/${encodeURIComponent(programName)}/members/${membershipNumber}/vouchers`
     ];
 
     let successfulResponse: Response | null = null;
@@ -136,7 +125,7 @@ router.get("/vouchers", async (req, res) => {
       totalCount: data.totalCount || transformedVouchers.length,
       _meta: {
         membershipNumber,
-        program,
+        program: programName,
         fetchedAt: new Date().toISOString(),
         sourceApi: "salesforce-connect"
       }

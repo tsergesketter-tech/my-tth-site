@@ -13,16 +13,11 @@ type VouchersResponse = {
 };
 
 /**
- * Fetch vouchers for the authenticated member from Salesforce
+ * Fetch vouchers for a member from Salesforce
  */
-export async function fetchMemberVouchers(): Promise<VouchersResponse> {
-  // First, make sure we have a valid session
-  const { ensureSession } = await import('./auth');
-  await ensureSession();
-
-  const response = await fetch('/api/loyalty/vouchers', {
+export async function fetchMemberVouchers(membershipNumber: string = "DL12345"): Promise<VouchersResponse> {
+  const response = await fetch(`/api/loyalty/member/${encodeURIComponent(membershipNumber)}/vouchers`, {
     method: 'GET',
-    credentials: 'include', // Include session cookies
     headers: {
       'Accept': 'application/json',
     },
