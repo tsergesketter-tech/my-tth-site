@@ -163,6 +163,7 @@ export default function Checkout() {
       const stayForPromotion = {
         id: stay.id,
         name: stay.name,
+        city: stay.city,
         pricePerNight: selectedRoom?.nightlyRate || stay.nightlyRate || 0,
         checkIn: checkInISO
       };

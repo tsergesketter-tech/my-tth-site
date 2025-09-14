@@ -114,6 +114,14 @@ export function createCartRequestFromStay(
 
   // Get the city code for product identification
   const cityCode = getCityCode(stay.city || '');
+  const cityName = stay.city || 'Unknown City';
+
+  console.log('[createCartRequestFromStay] Input stay:', {
+    name: stay.name,
+    city: stay.city,
+    cityCode,
+    pricePerNight: stay.pricePerNight
+  });
 
   return {
     cart: {
@@ -123,7 +131,7 @@ export function createCartRequestFromStay(
         currencyISOCode: 'USD',
         transactionAmount: stay.pricePerNight * quantity,
         cartLineDetails: [{
-          cartLineProduct: stay.name || 'Hotel Stay',
+          cartLineProduct: cityName,
           cartLineProductCode: cityCode,
           cartLineProductStockKeepingUnit: cityCode,
           cartLineItemQuantity: quantity,
