@@ -38,6 +38,33 @@ export interface PromotionDiscount {
   eligibleCartLines?: number[];
 }
 
+// Salesforce API response structures
+export interface SalesforceRewardDetail {
+  discountLevel: string;
+  discountType: string; // "PercentageOff", "FixedAmountOff", etc.
+  discountValue: string;
+}
+
+export interface SalesforceReward {
+  rewardType: string;
+  rewardDetails: SalesforceRewardDetail;
+}
+
+export interface SalesforcePromotionRule {
+  ruleName: string;
+  rulePriority: number;
+  ruleRewards: SalesforceReward[];
+}
+
+export interface SalesforcePromotion {
+  promotionId: string;
+  isAutomatic: boolean;
+  currencyIsoCode: string;
+  promotionEligibleRules: SalesforcePromotionRule[];
+  additionalPromotionFields: Record<string, any>;
+  promotionLimits: any[];
+}
+
 export interface EligiblePromotionsResponse {
   eligiblePromotions?: PromotionDiscount[];
   totalDiscountAmount?: number;
@@ -48,6 +75,60 @@ export interface EligiblePromotionsResponse {
     requestedAt: string;
     sourceApi: string;
     apiVersion: string;
+  };
+}
+
+// Salesforce API response format
+export interface SalesforcePromotionsResponse {
+  eligiblePromotions: SalesforcePromotion[];
+  _meta: {
+    requestedAt: string;
+    sourceApi: string;
+    apiVersion: string;
+  };
+}
+
+/**
+ * Transform Salesforce promotion to our PromotionDiscount format
+ */
+function transformSalesforcePromotion(
+  sfPromotion: SalesforcePromotion,
+  originalAmount: number
+): PromotionDiscount {
+  // Get the first rule and first reward (most promotions have one rule with one reward)
+  const firstRule = sfPromotion.promotionEligibleRules[0];
+  const firstReward = firstRule?.ruleRewards[0];
+
+  if (!firstReward || firstReward.rewardType !== 'ProvideDiscount') {
+    throw new Error(`Unsupported reward type: ${firstReward?.rewardType}`);
+  }
+
+  const rewardDetails = firstReward.rewardDetails;
+  const discountValue = parseFloat(rewardDetails.discountValue);
+
+  let discountType: 'PERCENTAGE' | 'FIXED_AMOUNT' | 'POINTS';
+  let discountAmount: number;
+
+  switch (rewardDetails.discountType) {
+    case 'PercentageOff':
+      discountType = 'PERCENTAGE';
+      discountAmount = (originalAmount * discountValue) / 100;
+      break;
+    case 'FixedAmountOff':
+      discountType = 'FIXED_AMOUNT';
+      discountAmount = discountValue;
+      break;
+    default:
+      throw new Error(`Unsupported discount type: ${rewardDetails.discountType}`);
+  }
+
+  return {
+    promotionId: sfPromotion.promotionId,
+    promotionName: firstRule.ruleName || `Promotion ${sfPromotion.promotionId}`,
+    discountType,
+    discountValue,
+    discountAmount: Math.round(discountAmount * 100) / 100, // Round to 2 decimal places
+    description: `${discountValue}${discountType === 'PERCENTAGE' ? '%' : ' USD'} off`
   };
 }
 
@@ -78,10 +159,35 @@ export async function getEligiblePromotions(
     );
   }
 
-  const promotionsData = await response.json();
-  console.log('[eligiblePromotions] Received promotions:', promotionsData);
+  const salesforceResponse: SalesforcePromotionsResponse = await response.json();
+  console.log('[eligiblePromotions] Received Salesforce response:', salesforceResponse);
 
-  return promotionsData;
+  // Calculate original amount from cart request
+  const originalAmount = cartRequest.cart.cartDetails.reduce(
+    (total, cart) => total + cart.transactionAmount, 0
+  );
+
+  // Transform Salesforce promotions to our format
+  const eligiblePromotions: PromotionDiscount[] = salesforceResponse.eligiblePromotions.map(
+    (sfPromotion) => transformSalesforcePromotion(sfPromotion, originalAmount)
+  );
+
+  console.log('[eligiblePromotions] Transformed promotions:', eligiblePromotions);
+
+  // Apply best promotion logic
+  const { finalAmount, appliedPromotions, totalDiscount } = applyBestPromotions(
+    originalAmount,
+    eligiblePromotions
+  );
+
+  return {
+    eligiblePromotions,
+    totalDiscountAmount: totalDiscount,
+    originalAmount,
+    finalAmount,
+    appliedPromotions,
+    _meta: salesforceResponse._meta
+  };
 }
 
 /**
