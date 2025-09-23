@@ -18,6 +18,47 @@ const Hero = () => {
     };
   }, []);
 
+  // Watch for Evergage changes and auto-update background
+  React.useEffect(() => {
+    const observer = new MutationObserver((mutations) => {
+      mutations.forEach((mutation) => {
+        if (mutation.type === 'childList' || mutation.type === 'attributes') {
+          // Check if personalization zone was modified
+          const personalizationZone = document.getElementById('hero-personalizable-zone');
+          if (personalizationZone) {
+            // Look for background image data attribute
+            const bgImage = personalizationZone.getAttribute('data-bg-image');
+            if (bgImage) {
+              handleEvergageBackgroundUpdate(bgImage);
+            }
+
+            // Also check for a hidden element with the background URL
+            const bgElement = personalizationZone.querySelector('[data-background-url]');
+            if (bgElement) {
+              const bgUrl = bgElement.getAttribute('data-background-url');
+              if (bgUrl) {
+                handleEvergageBackgroundUpdate(bgUrl);
+              }
+            }
+          }
+        }
+      });
+    });
+
+    // Observe the entire hero section for changes
+    const heroSection = document.getElementById('hero-section');
+    if (heroSection) {
+      observer.observe(heroSection, {
+        childList: true,
+        subtree: true,
+        attributes: true,
+        attributeFilter: ['data-bg-image', 'data-background-url']
+      });
+    }
+
+    return () => observer.disconnect();
+  }, []);
+
   return (
     <section
       id="hero-section"

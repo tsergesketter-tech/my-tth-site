@@ -11,6 +11,7 @@ import {
 import React, { ReactNode } from "react";
 import Header from "./components/Header";
 import Footer from "./components/Footer";
+import DemoBanner from "./components/DemoBanner";
 import "./styles/evergage.css";
 import Home from "./pages/Home";
 import Promotions from "./pages/Promotions";
@@ -74,6 +75,7 @@ function LoginPage() {
 export default function App() {
   return (
     <BrowserRouter>
+      <DemoBanner />
       <Header />
       <Routes>
         {/* Public */}
