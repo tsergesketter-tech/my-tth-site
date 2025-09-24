@@ -30,6 +30,9 @@ export type MemberProfile = {
   /** Redeemable balance (points/miles) */
   availablePoints?: number;
 
+  /** Escrow points balance */
+  escrowPoints?: number;
+
   /** Optional extras */
   lifetimePoints?: number;
   memberSince?: string;     // ISO date (YYYY-MM-DD)

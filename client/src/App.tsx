@@ -22,6 +22,7 @@ import Checkout from "./pages/Checkout";
 import Confirmation from "./pages/Confirmation";
 import StayDetail from "./pages/StayDetail";
 import DestinationType from "./pages/DestinationType";
+import AdminConsole from "./pages/AdminConsole";
 import LoginCard, { useAuth } from "./components/LoginCard";
 
 // --- Protect routes ---
@@ -109,6 +110,14 @@ export default function App() {
           element={
             <RequireAuth>
               <Confirmation />
+            </RequireAuth>
+          }
+        />
+        <Route
+          path="/admin"
+          element={
+            <RequireAuth>
+              <AdminConsole />
             </RequireAuth>
           }
         />

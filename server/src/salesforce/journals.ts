@@ -13,7 +13,7 @@ const DEFAULT_TYPE_ACCRUAL = process.env.SF_JOURNAL_TYPE_NAME_ACCRUAL || "Accrua
 const DEFAULT_TYPE_REDEMPTION = process.env.SF_JOURNAL_TYPE_NAME_REDEMPTION || "Redemption";
 
 // Fields that should always be strings for compatibility
-const STRINGIFY_FIELDS = ["Cash_Paid__c", "Length_of_Booking__c", "Length_of_Stay__c", "Points_to_Redeem__c"];
+const STRINGIFY_FIELDS = ["Cash_Paid__c", "Length_of_Booking__c", "Length_of_Stay__c", "Points_to_Redeem__c", "MileBalance__c", "MQDBalance__c", "TransactionAmount"];
 
 export type BaseStayJournal = {
   ExternalTransactionNumber: string;

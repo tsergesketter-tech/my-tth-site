@@ -992,7 +992,7 @@ router.post('/simulate', async (req, res) => {
       const byCurrency: Record<string, number> = {};
       for (const p of points) {
         const curr = p?.loyaltyProgramCurrencyName || p?.currencyIsoCode || 'PTS';
-        const delta = Number(p?.changeInPointsBalance ?? p?.changeInPoints ?? 0);
+        const delta = Number(p?.changeinescrowpointsbalance ?? p?.changeInPointsBalance ?? p?.changeInPoints ?? 0);
         byCurrency[curr] = (byCurrency[curr] ?? 0) + delta;
       }
       return {
@@ -1168,6 +1168,373 @@ router.get('/member/:membershipNumber/engagement-trail/:promotionId', async (req
     res.status(500).json({ 
       error: 'Failed to fetch engagement trail progress',
       details: error.message
+    });
+  }
+});
+
+// POST /api/loyalty/update-tier - Update member tier (Admin function)
+router.post('/update-tier', async (req, res) => {
+  try {
+    const { membershipNumber, tierName, loyaltyProgramName } = req.body;
+
+    console.log(`[loyalty/update-tier] Updating tier for member ${membershipNumber} to ${tierName}`);
+
+    if (!membershipNumber || !tierName || !loyaltyProgramName) {
+      return res.status(400).json({
+        error: 'Missing required fields',
+        details: 'membershipNumber, tierName, and loyaltyProgramName are required'
+      });
+    }
+
+    // Call Salesforce Update Tier API using Program Process
+    // Based on: https://developer.salesforce.com/docs/atlas.en-us.loyalty.meta/loyalty/connect_resources_update_tier.htm
+    const apiPath = `/services/data/v62.0/connect/loyalty/programs/${encodeURIComponent(loyaltyProgramName)}/program-processes/${encodeURIComponent('Change Member Tier')}`;
+
+    const requestBody = {
+      processParameters: [
+        {
+          MembershipNumber: membershipNumber,
+          NewTier: tierName,  // Fixed: Use NewTier instead of TierName
+          ReasonForChange: "Admin console tier update"
+        }
+      ]
+    };
+
+    console.log(`[loyalty/update-tier] Calling Salesforce API: ${apiPath}`);
+    console.log(`[loyalty/update-tier] Request body:`, JSON.stringify(requestBody, null, 2));
+
+    const response = await sfFetch(apiPath, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(requestBody)
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error(`[loyalty/update-tier] Salesforce API failed ${response.status}:`, errorText);
+      return res.status(response.status).json({
+        error: "Failed to update member tier",
+        details: errorText,
+        salesforceStatus: response.status
+      });
+    }
+
+    const updateResult = await response.json();
+    console.log(`[loyalty/update-tier] Salesforce response:`, JSON.stringify(updateResult, null, 2));
+
+    res.json({
+      success: true,
+      membershipNumber,
+      newTier: tierName,
+      updateResult,
+      _meta: {
+        updatedAt: new Date().toISOString(),
+        sourceApi: "salesforce-connect",
+        apiVersion: "v64.0"
+      }
+    });
+
+  } catch (error: any) {
+    console.error(`[loyalty/update-tier] Error:`, error);
+    res.status(500).json({
+      error: "Internal server error updating member tier",
+      message: error.message
+    });
+  }
+});
+
+// POST /api/loyalty/sso-enrollment - Mock SSO enrollment (check, enroll if needed, update tier/points)
+router.post('/sso-enrollment', async (req, res) => {
+  try {
+    const { firstName, lastName, email, membershipNumber, tier, milesBalance, mqdsBalance } = req.body;
+    const loyaltyProgramName = 'Cars and Stays by Delta';
+
+    console.log(`[loyalty/sso-enrollment] Processing SSO enrollment for ${firstName} ${lastName} (${membershipNumber})`);
+
+    if (!firstName || !lastName || !email || !membershipNumber || !tier) {
+      return res.status(400).json({
+        error: 'Missing required fields',
+        details: 'firstName, lastName, email, membershipNumber, and tier are required'
+      });
+    }
+
+    let memberExists = false;
+    let memberRecord: any = null;
+
+    // Step 1: Check if member exists
+    console.log(`[loyalty/sso-enrollment] === STEP 1: CHECKING MEMBER EXISTENCE ===`);
+    try {
+      memberRecord = await fetchMemberRecord(loyaltyProgramName, membershipNumber);
+      memberExists = !!memberRecord;
+      console.log(`[loyalty/sso-enrollment] ✅ Member ${membershipNumber} exists: ${memberExists}`);
+      console.log(`[loyalty/sso-enrollment] Member record:`, JSON.stringify(memberRecord, null, 2));
+    } catch (error) {
+      console.log(`[loyalty/sso-enrollment] ❌ Member ${membershipNumber} not found:`, error);
+      memberExists = false;
+    }
+
+    let action = '';
+    let enrollmentResult: any = null;
+    let balancesChanged = false;
+
+    // Step 2: Enroll member if they don't exist
+    if (!memberExists) {
+      console.log(`[loyalty/sso-enrollment] === STEP 2: ENROLLING NEW MEMBER ===`);
+      console.log(`[loyalty/sso-enrollment] Enrolling new member ${membershipNumber}`);
+
+      const enrollmentData = {
+        enrollmentDate: new Date().toISOString(),
+        membershipNumber,
+        associatedContactDetails: {
+          firstName,
+          lastName,
+          email,
+          allowDuplicateRecords: "false",
+          additionalContactFieldValues: {
+            attributes: {
+              // Add any additional contact fields as needed
+            }
+          }
+        },
+        memberStatus: "Active",
+        createTransactionJournals: "true",
+        transactionJournalStatementFrequency: "Monthly",
+        transactionJournalStatementMethod: "Email",
+        enrollmentChannel: "Web",
+        canReceivePromotions: "true",
+        canReceivePartnerPromotions: "true",
+        additionalMemberFieldValues: {
+          attributes: {
+            // Add any additional member fields as needed
+          }
+        }
+      };
+
+      // Call Individual Member Enrollment API - correct endpoint
+      const enrollmentPath = `/services/data/v62.0/loyalty-programs/${encodeURIComponent(loyaltyProgramName)}/individual-member-enrollments`;
+
+      console.log(`[loyalty/sso-enrollment] 📤 ENROLLMENT API REQUEST:`);
+      console.log(`[loyalty/sso-enrollment] URL: ${enrollmentPath}`);
+      console.log(`[loyalty/sso-enrollment] Method: POST`);
+      console.log(`[loyalty/sso-enrollment] Headers: Content-Type: application/json`);
+      console.log(`[loyalty/sso-enrollment] Body:`, JSON.stringify(enrollmentData, null, 2));
+
+      const enrollmentResponse = await sfFetch(enrollmentPath, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(enrollmentData)
+      });
+
+      console.log(`[loyalty/sso-enrollment] 📥 ENROLLMENT API RESPONSE:`);
+      console.log(`[loyalty/sso-enrollment] Status: ${enrollmentResponse.status} ${enrollmentResponse.statusText}`);
+
+      if (!enrollmentResponse.ok) {
+        const errorText = await enrollmentResponse.text();
+        console.log(`[loyalty/sso-enrollment] ❌ Enrollment error body:`, errorText);
+        return res.status(enrollmentResponse.status).json({
+          error: "Failed to enroll member",
+          details: errorText,
+          salesforceStatus: enrollmentResponse.status
+        });
+      }
+
+      enrollmentResult = await enrollmentResponse.json();
+      console.log(`[loyalty/sso-enrollment] ✅ Enrollment success body:`, JSON.stringify(enrollmentResult, null, 2));
+      action = 'Enrolled';
+    } else {
+      console.log(`[loyalty/sso-enrollment] Member ${membershipNumber} already exists, checking tier`);
+
+      // Extract current tier from member record
+      const currentTierName = memberRecord?.memberTiers?.[0]?.loyaltyMemberTierName ||
+                             memberRecord?.tier?.name ||
+                             memberRecord?.currentTier ||
+                             'Unknown';
+
+      console.log(`[loyalty/sso-enrollment] Current tier: ${currentTierName}, Requested tier: ${tier}`);
+
+      if (currentTierName.toLowerCase() === tier.toLowerCase()) {
+        console.log(`[loyalty/sso-enrollment] Tier matches, no tier update required`);
+      } else {
+        action = 'Member Found - Tier Update Required';
+        console.log(`[loyalty/sso-enrollment] Tier mismatch, will update from ${currentTierName} to ${tier}`);
+      }
+
+      // Check current Miles and MQDs balances
+      const currentMiles = memberRecord?.memberCurrencies?.find((currency: any) =>
+        currency.loyaltyMemberCurrencyName === 'Miles')?.pointsBalance || 0;
+      const currentMQDs = memberRecord?.memberCurrencies?.find((currency: any) =>
+        currency.loyaltyMemberCurrencyName === 'MQDs')?.pointsBalance || 0;
+
+      console.log(`[loyalty/sso-enrollment] Current balances - Miles: ${currentMiles}, MQDs: ${currentMQDs}`);
+      console.log(`[loyalty/sso-enrollment] Requested balances - Miles: ${milesBalance}, MQDs: ${mqdsBalance}`);
+
+      const milesChanged = typeof milesBalance === 'number' && milesBalance !== currentMiles;
+      const mqdsChanged = typeof mqdsBalance === 'number' && mqdsBalance !== currentMQDs;
+      balancesChanged = milesChanged || mqdsChanged;
+
+      if (balancesChanged) {
+        console.log(`[loyalty/sso-enrollment] Balance changes detected - Miles changed: ${milesChanged}, MQDs changed: ${mqdsChanged}`);
+        if (!action || action === 'Member Found - No Changes Needed') {
+          action = 'Member Found - Balance Update Required';
+        }
+      } else {
+        console.log(`[loyalty/sso-enrollment] No balance changes detected`);
+      }
+
+      // If no tier changes and no balance changes, we can exit early
+      if (!action || (action !== 'Member Found - Tier Update Required' && !balancesChanged)) {
+        action = 'Member Found - No Changes Needed';
+        console.log(`[loyalty/sso-enrollment] No changes needed - tier and balances match`);
+
+        return res.json({
+          success: true,
+          action,
+          membershipNumber,
+          currentTier: currentTierName,
+          requestedTier: tier,
+          tierUpdateNeeded: false,
+          balanceUpdateNeeded: false,
+          currentBalances: { miles: currentMiles, mqds: currentMQDs },
+          requestedBalances: { miles: milesBalance, mqds: mqdsBalance },
+          memberExists: true,
+          memberRecord: {
+            name: `${memberRecord?.associatedContact?.firstName || 'Unknown'} ${memberRecord?.associatedContact?.lastName || ''}`,
+            email: memberRecord?.associatedContact?.email,
+            currentTier: currentTierName
+          },
+          _meta: {
+            processedAt: new Date().toISOString(),
+            sourceApi: "mock-sso",
+            loyaltyProgram: loyaltyProgramName
+          }
+        });
+      }
+    }
+
+    // Step 3: Update member tier (only if member was enrolled OR tier differs)
+    let tierUpdateResult: any = null;
+    if (!memberExists || action === 'Member Found - Tier Update Required') {
+      console.log(`[loyalty/sso-enrollment] === STEP 3: UPDATING MEMBER TIER ===`);
+      console.log(`[loyalty/sso-enrollment] Updating tier to ${tier}`);
+
+      const tierUpdatePath = `/services/data/v62.0/connect/loyalty/programs/${encodeURIComponent(loyaltyProgramName)}/program-processes/${encodeURIComponent('Change Member Tier')}`;
+
+      const tierUpdatePayload = {
+        processParameters: [{
+          MembershipNumber: membershipNumber,
+          NewTier: tier,  // Fixed: Use NewTier instead of TierName
+          ReasonForChange: "SSO enrollment tier update"
+        }]
+      };
+
+      console.log(`[loyalty/sso-enrollment] 📤 TIER UPDATE API REQUEST:`);
+      console.log(`[loyalty/sso-enrollment] URL: ${tierUpdatePath}`);
+      console.log(`[loyalty/sso-enrollment] Method: POST`);
+      console.log(`[loyalty/sso-enrollment] Headers: Content-Type: application/json`);
+      console.log(`[loyalty/sso-enrollment] Body:`, JSON.stringify(tierUpdatePayload, null, 2));
+
+      const tierUpdateResponse = await sfFetch(tierUpdatePath, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(tierUpdatePayload)
+      });
+
+      console.log(`[loyalty/sso-enrollment] 📥 TIER UPDATE API RESPONSE:`);
+      console.log(`[loyalty/sso-enrollment] Status: ${tierUpdateResponse.status} ${tierUpdateResponse.statusText}`);
+
+      if (tierUpdateResponse.ok) {
+        tierUpdateResult = await tierUpdateResponse.json();
+        console.log(`[loyalty/sso-enrollment] ✅ Tier update success body:`, JSON.stringify(tierUpdateResult, null, 2));
+      } else {
+        const errorText = await tierUpdateResponse.text();
+        console.log(`[loyalty/sso-enrollment] ❌ Tier update error body:`, errorText);
+      }
+    } else {
+      console.log(`[loyalty/sso-enrollment] === STEP 3: SKIPPING TIER UPDATE ===`);
+      console.log(`[loyalty/sso-enrollment] No tier update needed - member already has correct tier`);
+    }
+
+    // Step 4: Update points balances (Miles and MQDs) via Transaction Journal
+    // Create journal for all scenarios (new member or updates)
+    let journalResult: any = null;
+    if (!memberExists || action === 'Member Found - Tier Update Required' || balancesChanged) {
+      console.log(`[loyalty/sso-enrollment] === STEP 4: UPDATING POINTS BALANCES ===`);
+      console.log(`[loyalty/sso-enrollment] Creating transaction journal - Miles: ${milesBalance}, MQDs: ${mqdsBalance}`);
+      console.log(`[loyalty/sso-enrollment] Trigger reasons - New member: ${!memberExists}, Tier change: ${action === 'Member Found - Tier Update Required'}, Balance change: ${balancesChanged}`);
+
+      const journalPayload: AccrualStayJournal = {
+        JournalTypeName: "Accrual",
+        JournalSubTypeName: "SSO Update",
+        MembershipNumber: membershipNumber,
+        MileBalance__c: milesBalance,
+        MQDBalance__c: mqdsBalance,
+        ActivityDate: new Date().toISOString(),
+        TransactionAmount: 0, // SSO balance update, no transaction amount
+        CurrencyIsoCode: "USD",
+        ExternalTransactionNumber: `SSO-${membershipNumber}-${Date.now()}`,
+        External_ID__c: `SSO-${membershipNumber}-${Date.now()}`,
+        Comment: "SSO enrollment points balance update"
+      };
+
+      console.log(`[loyalty/sso-enrollment] 📤 JOURNAL PAYLOAD:`);
+      console.log(`[loyalty/sso-enrollment] Using executeAccrualStayJournal with payload:`, JSON.stringify(journalPayload, null, 2));
+
+      try {
+        const result = await executeAccrualStayJournal(journalPayload);
+
+        console.log(`[loyalty/sso-enrollment] 📥 JOURNAL API RESPONSE:`);
+        console.log(`[loyalty/sso-enrollment] Status: ${result.status}`);
+        console.log(`[loyalty/sso-enrollment] OK: ${result.ok}`);
+
+        if (result.ok) {
+          journalResult = result.body;
+          console.log(`[loyalty/sso-enrollment] ✅ Journal creation success body:`, JSON.stringify(journalResult, null, 2));
+        } else {
+          console.log(`[loyalty/sso-enrollment] ❌ Journal creation error body:`, JSON.stringify(result.body, null, 2));
+        }
+      } catch (error) {
+        console.error(`[loyalty/sso-enrollment] Journal creation failed:`, error);
+      }
+    } else {
+      console.log(`[loyalty/sso-enrollment] === STEP 4: SKIPPING POINTS UPDATE ===`);
+      console.log(`[loyalty/sso-enrollment] No changes detected - member exists, tier matches, and balances match`);
+    }
+
+    // Update action description based on what was actually processed
+    if (memberExists && action !== 'Member Found - Tier Update Required' && balancesChanged) {
+      action = 'Member Found - Balance Update Processed';
+    }
+
+    res.json({
+      success: true,
+      action,
+      membershipNumber,
+      tier,
+      milesBalance,
+      mqdsBalance,
+      memberExists,
+      enrollmentResult,
+      tierUpdateResult,
+      journalResult,
+      balanceUpdateProcessed: balancesChanged && journalResult != null,
+      _meta: {
+        processedAt: new Date().toISOString(),
+        sourceApi: "mock-sso",
+        loyaltyProgram: loyaltyProgramName
+      }
+    });
+
+  } catch (error: any) {
+    console.error(`[loyalty/sso-enrollment] Error:`, error);
+    res.status(500).json({
+      error: "Internal server error processing SSO enrollment",
+      message: error.message
     });
   }
 });

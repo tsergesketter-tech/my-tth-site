@@ -18,13 +18,15 @@ import {
   postStayRedemption,
   buildRedemptionFromCheckout
 } from "../utils/loyaltyTransactions";
-import { 
-  POINT_VALUE_USD, 
-  pointsToUSD, 
+import {
+  POINT_VALUE_USD,
+  pointsToUSD,
   formatPointsAsCurrency,
   MIN_REDEMPTION_POINTS,
   MAX_REDEMPTION_POINTS
 } from "@teddy/shared";
+import { mapSFMemberProfile } from "../utils/mapMemberProfile";
+import type { MemberProfile } from "../types/member";
 
 type Room = {
   code: string;
@@ -182,7 +184,47 @@ export default function Checkout() {
   // === Redemption (Real implementation) ===
   const [redeemPoints, setRedeemPoints] = useState<number>(0);
   const [redemptionError, setRedemptionError] = useState<string | null>(null);
-  
+
+  // Member profile state for fetching available points balance
+  const [memberProfile, setMemberProfile] = useState<MemberProfile | null>(null);
+  const [memberLoading, setMemberLoading] = useState<boolean>(false);
+
+  // Fetch member profile to get available points balance
+  useEffect(() => {
+    const fetchMemberProfile = async () => {
+      try {
+        setMemberLoading(true);
+
+        // Use hardcoded membership number for demo - could be from auth context
+        const membershipNumber = 'DL12345';
+        const loyaltyProgramName = 'Cars and Stays by Delta';
+
+        const response = await fetch(
+          `/api/loyalty/members?program=${encodeURIComponent(loyaltyProgramName)}&membershipNumber=${encodeURIComponent(membershipNumber)}`
+        );
+
+        if (!response.ok) {
+          console.warn(`Failed to fetch member profile: ${response.status} ${response.statusText}`);
+          return;
+        }
+
+        const json = await response.json();
+        const memberRecord: any = Array.isArray(json) ? json[0] : json;
+
+        if (memberRecord) {
+          const profile = mapSFMemberProfile(memberRecord);
+          setMemberProfile(profile);
+        }
+      } catch (error) {
+        console.warn('Error fetching member profile:', error);
+      } finally {
+        setMemberLoading(false);
+      }
+    };
+
+    fetchMemberProfile();
+  }, []); // Empty dependency array - fetch once on mount
+
   // Calculate redemption credit using configurable point value
   const redeemCredit = useMemo(
     () => pointsToUSD(Math.max(0, redeemPoints)),
@@ -428,6 +470,7 @@ export default function Checkout() {
                 originalAmount={price.total}
                 finalAmount={priceAfterPromotions}
                 totalDiscount={promotionDiscount}
+                totalPointsAwarded={0}
                 loading={promotions.loading}
               />
             </div>
@@ -553,7 +596,7 @@ export default function Checkout() {
             <div className="rounded-xl border p-4 shadow-sm bg-white">
               <RedemptionForm
                 bookingId={`preview-${Date.now()}`}
-                maxPoints={50000} // Demo: could fetch actual balance from member API
+                maxPoints={memberProfile?.availablePoints || 0}
                 onPreview={(pts) => {
                   setRedeemPoints(Math.max(0, Math.floor(pts)));
                   setRedemptionError(null);

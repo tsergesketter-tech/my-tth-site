@@ -28,26 +28,59 @@ export interface EligiblePromotionsRequest {
   };
 }
 
+export interface PromotionBenefit {
+  type: string; // 'Discount', 'Points', 'Voucher', 'Badge', 'FreeProduct'
+  discountLevel?: string;
+  discountType?: string; // 'Amount', 'Percent'
+  discountValue?: number;
+  points?: string;
+  loyaltyProgramCurrencyName?: string;
+  voucherDefinition?: string;
+  voucherExpiryDate?: string;
+  loyaltyProgramBadgeName?: string;
+  lineItemid?: string;
+  lines?: Array<{ id: string; quantity: number }>;
+}
+
+export interface PromotionRule {
+  ruleName: string;
+  benefits: PromotionBenefit[];
+}
+
+export interface PromotionDetails {
+  id: string;
+  promotionCode?: string;
+  displayName: string;
+  priority: number;
+  currencyCode: string;
+  additionalFields?: Record<string, any>;
+  rules: PromotionRule[];
+}
+
 export interface PromotionDiscount {
   promotionId: string;
   promotionName: string;
   discountType: 'PERCENTAGE' | 'FIXED_AMOUNT' | 'POINTS';
   discountValue: number;
   discountAmount: number;
+  pointsAwarded?: number;
+  pointsCurrency?: string;
   description?: string;
   eligibleCartLines?: number[];
 }
 
-// Salesforce API response structures
-export interface SalesforceRewardDetail {
-  discountLevel: string;
-  discountType: string; // "PercentageOff", "FixedAmountOff", etc.
-  discountValue: string;
+// Actual Salesforce API response structures
+export interface SalesforceRewardDetails {
+  discountLevel?: string;
+  discountType?: string; // "PercentageOff", "FixedAmountOff", etc.
+  discountValue?: string;
+  loyaltyProgramCurrencyName?: string;
+  points?: string;
 }
 
 export interface SalesforceReward {
-  rewardType: string;
-  rewardDetails: SalesforceRewardDetail;
+  rewardType: string; // "ProvideDiscount", "CreditFixedPoints", etc.
+  rewardDetails: SalesforceRewardDetails;
 }
 
 export interface SalesforcePromotionRule {
@@ -58,6 +91,7 @@ export interface SalesforcePromotionRule {
 
 export interface SalesforcePromotion {
   promotionId: string;
+  displayName: string;
   isAutomatic: boolean;
   currencyIsoCode: string;
   promotionEligibleRules: SalesforcePromotionRule[];
@@ -68,6 +102,7 @@ export interface SalesforcePromotion {
 export interface EligiblePromotionsResponse {
   eligiblePromotions?: PromotionDiscount[];
   totalDiscountAmount?: number;
+  totalPointsAwarded?: number;
   originalAmount?: number;
   finalAmount?: number;
   appliedPromotions?: PromotionDiscount[];
@@ -90,46 +125,88 @@ export interface SalesforcePromotionsResponse {
 
 /**
  * Transform Salesforce promotion to our PromotionDiscount format
+ * Returns an array to support multiple rewards per promotion
  */
 function transformSalesforcePromotion(
   sfPromotion: SalesforcePromotion,
   originalAmount: number
-): PromotionDiscount {
-  // Get the first rule and first reward (most promotions have one rule with one reward)
+): PromotionDiscount[] {
+  const discounts: PromotionDiscount[] = [];
+
+  for (const rule of sfPromotion.promotionEligibleRules) {
+    for (const reward of rule.ruleRewards) {
+      if (reward.rewardType === 'ProvideDiscount') {
+        const details = reward.rewardDetails;
+        const discountValue = parseFloat(details.discountValue || '0');
+        let discountType: 'PERCENTAGE' | 'FIXED_AMOUNT';
+        let discountAmount: number;
+
+        switch (details.discountType) {
+          case 'PercentageOff':
+            discountType = 'PERCENTAGE';
+            discountAmount = (originalAmount * discountValue) / 100;
+            break;
+          case 'FixedAmountOff':
+            discountType = 'FIXED_AMOUNT';
+            discountAmount = discountValue;
+            break;
+          default:
+            console.warn(`Unsupported discount type: ${details.discountType}`);
+            continue;
+        }
+
+        const discount: PromotionDiscount = {
+          promotionId: sfPromotion.promotionId,
+          promotionName: sfPromotion.displayName || rule.ruleName || `Promotion ${sfPromotion.promotionId}`,
+          discountType,
+          discountValue,
+          discountAmount: Math.round(discountAmount * 100) / 100,
+          description: `${discountValue}${discountType === 'PERCENTAGE' ? '%' : ' USD'} off`
+        };
+
+        discounts.push(discount);
+
+      } else if (reward.rewardType === 'CreditFixedPoints') {
+        // Points credits are auto-redeemed to reduce cost
+        const details = reward.rewardDetails;
+        const pointsRedeemed = parseInt(details.points || '0', 10);
+        const pointsCurrency = details.loyaltyProgramCurrencyName || 'Miles';
+
+        // Convert points to dollar value (assuming Miles = $0.01 each, adjust as needed)
+        const pointValue = pointsCurrency === 'Miles' ? 0.01 : 0.01;
+        const pointsDiscountAmount = pointsRedeemed * pointValue;
+
+        const pointsDiscount: PromotionDiscount = {
+          promotionId: sfPromotion.promotionId,
+          promotionName: sfPromotion.displayName || `Auto-redeem ${pointsRedeemed} ${pointsCurrency}`,
+          discountType: 'POINTS',
+          discountValue: pointsRedeemed,
+          discountAmount: Math.round(pointsDiscountAmount * 100) / 100,
+          pointsAwarded: 0, // These are redeemed, not awarded
+          pointsCurrency,
+          description: `${pointsRedeemed} ${pointsCurrency} auto-redeemed ($${pointsDiscountAmount.toFixed(2)} value)`
+        };
+
+        discounts.push(pointsDiscount);
+      }
+    }
+  }
+
+  // Return all discounts found, or a fallback if none
+  if (discounts.length > 0) {
+    return discounts;
+  }
+
+  // Fallback for other reward types
   const firstRule = sfPromotion.promotionEligibleRules[0];
-  const firstReward = firstRule?.ruleRewards[0];
-
-  if (!firstReward || firstReward.rewardType !== 'ProvideDiscount') {
-    throw new Error(`Unsupported reward type: ${firstReward?.rewardType}`);
-  }
-
-  const rewardDetails = firstReward.rewardDetails;
-  const discountValue = parseFloat(rewardDetails.discountValue);
-
-  let discountType: 'PERCENTAGE' | 'FIXED_AMOUNT' | 'POINTS';
-  let discountAmount: number;
-
-  switch (rewardDetails.discountType) {
-    case 'PercentageOff':
-      discountType = 'PERCENTAGE';
-      discountAmount = (originalAmount * discountValue) / 100;
-      break;
-    case 'FixedAmountOff':
-      discountType = 'FIXED_AMOUNT';
-      discountAmount = discountValue;
-      break;
-    default:
-      throw new Error(`Unsupported discount type: ${rewardDetails.discountType}`);
-  }
-
-  return {
+  return [{
     promotionId: sfPromotion.promotionId,
-    promotionName: firstRule.ruleName || `Promotion ${sfPromotion.promotionId}`,
-    discountType,
-    discountValue,
-    discountAmount: Math.round(discountAmount * 100) / 100, // Round to 2 decimal places
-    description: `${discountValue}${discountType === 'PERCENTAGE' ? '%' : ' USD'} off`
-  };
+    promotionName: sfPromotion.displayName || firstRule?.ruleName || `Promotion ${sfPromotion.promotionId}`,
+    discountType: 'FIXED_AMOUNT',
+    discountValue: 0,
+    discountAmount: 0,
+    description: 'Special promotion benefits available'
+  }];
 }
 
 /**
@@ -167,12 +244,12 @@ export async function getEligiblePromotions(
     (total, cart) => total + cart.transactionAmount, 0
   );
 
-  // Transform Salesforce promotions to our format
-  const eligiblePromotions: PromotionDiscount[] = salesforceResponse.eligiblePromotions.map(
+  // Transform Salesforce promotions to our format - flatten since each promotion can have multiple rewards
+  const eligiblePromotions: PromotionDiscount[] = salesforceResponse.eligiblePromotions.flatMap(
     (sfPromotion) => transformSalesforcePromotion(sfPromotion, originalAmount)
   );
 
-  console.log('[eligiblePromotions] Transformed promotions:', eligiblePromotions);
+
 
   // Apply best promotion logic
   const { finalAmount, appliedPromotions, totalDiscount } = applyBestPromotions(
@@ -257,34 +334,35 @@ export function calculateTotalDiscount(promotions: PromotionDiscount[]): number 
 }
 
 /**
- * Apply the best available promotions to a cart total
+ * Apply all available promotions to a cart total
  */
 export function applyBestPromotions(
   originalAmount: number,
   eligiblePromotions: PromotionDiscount[]
-): { finalAmount: number; appliedPromotions: PromotionDiscount[]; totalDiscount: number } {
-  // Sort promotions by discount amount descending to get best deals first
-  const sortedPromotions = [...eligiblePromotions].sort(
-    (a, b) => (b.discountAmount || 0) - (a.discountAmount || 0)
-  );
+): { finalAmount: number; appliedPromotions: PromotionDiscount[]; totalDiscount: number; totalPointsAwarded: number } {
+  // All promotions (including points redemptions) provide discounts
+  const allDiscountPromotions = eligiblePromotions.filter(p => p.discountAmount > 0);
 
-  // For now, apply the single best promotion (can be enhanced for stacking)
-  const bestPromotion = sortedPromotions[0];
-
-  if (!bestPromotion) {
+  if (allDiscountPromotions.length === 0) {
     return {
       finalAmount: originalAmount,
       appliedPromotions: [],
-      totalDiscount: 0
+      totalDiscount: 0,
+      totalPointsAwarded: 0
     };
   }
 
-  const totalDiscount = bestPromotion.discountAmount || 0;
+  // Apply all promotions - both percentage discounts and points redemptions
+  const totalDiscount = allDiscountPromotions.reduce(
+    (total, promo) => total + (promo.discountAmount || 0), 0
+  );
+
   const finalAmount = Math.max(0, originalAmount - totalDiscount);
 
   return {
     finalAmount,
-    appliedPromotions: [bestPromotion],
-    totalDiscount
+    appliedPromotions: allDiscountPromotions,
+    totalDiscount,
+    totalPointsAwarded: 0 // All points are redeemed (used for discounts), not awarded
   };
 }

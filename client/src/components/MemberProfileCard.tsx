@@ -67,12 +67,13 @@ export default function MemberProfileCard({
     avatarUrl,
   } = profile;
 
-  // New: tolerant reads for miles/MQDs (works even if your MemberProfile type
-  // doesn’t have them yet; you can add them later without changing this file)
+  // New: tolerant reads for miles/MQDs/escrow (works even if your MemberProfile type
+  // doesn't have them yet; you can add them later without changing this file)
   const miles = (profile as any)?.miles as number | undefined;
   const mqds =
     (profile as any)?.mqds ??
     (profile as any)?.mqd as number | undefined; // accept either key
+  const escrowPoints = (profile as any)?.escrowPoints as number | undefined;
 
   return (
     <div style={styles.card}>
@@ -112,12 +113,17 @@ export default function MemberProfileCard({
           <div style={styles.kpiValue}>{fmtNumber(availablePoints)}</div>
         </div>
 
-        {/* Replaced "Lifetime Points" with Miles + MQDs */}
+        {/* Miles and MQDs */}
         <div style={styles.kpi}>
           <div style={styles.kpiRowCompact}>
             <div>
               <div style={styles.kpiLabel}>Miles</div>
               <div style={styles.kpiValueSmall}>{fmtNumber(miles)}</div>
+              {typeof escrowPoints === 'number' && escrowPoints > 0 && (
+                <div style={styles.kpiSubtext}>
+                  {fmtNumber(escrowPoints)} pending
+                </div>
+              )}
             </div>
             <div>
               <div style={styles.kpiLabel}>MQDs</div>
@@ -261,7 +267,14 @@ const styles: Record<string, React.CSSProperties> = {
     gridTemplateColumns: '1fr 1fr',
     gap: 12,
   },
+  // Triple column layout for Miles/MQDs/Escrow
+  kpiRowTriple: {
+    display: 'grid',
+    gridTemplateColumns: '1fr 1fr 1fr',
+    gap: 8,
+  },
   kpiValueSmall: { fontSize: 18, fontWeight: 800, marginTop: 2 },
+  kpiSubtext: { fontSize: 10, color: '#64748b', marginTop: 2, fontWeight: 500 },
 
   progressHeader: {
     display: 'flex',

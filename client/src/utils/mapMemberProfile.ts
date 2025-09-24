@@ -33,9 +33,11 @@ export function mapSFMemberProfile(sf: any): MemberProfile {
   // Balances
   const milesBal = byName["Miles"]?.pointsBalance;
   const mqdsBal  = byName["MQDs"]?.pointsBalance;
+  const escrowBal = byName["Miles"]?.escrowPointsBalance;
 
   // Keep "availablePoints" as your main headline (use Miles balance)
   const availablePoints = typeof milesBal === "number" ? milesBal : 0;
+  const escrowPoints = typeof escrowBal === "number" ? escrowBal : 0;
 
   // Optional: keep lifetimePoints if your org ever provides it elsewhere
   const lifetimePoints =
@@ -60,6 +62,7 @@ export function mapSFMemberProfile(sf: any): MemberProfile {
     lifetimePoints,
     miles: typeof milesBal === "number" ? milesBal : undefined,
     mqds: typeof mqdsBal === "number" ? mqdsBal : undefined,
+    escrowPoints,
     memberSince,
     avatarUrl,
     vouchersCount,

@@ -8,6 +8,7 @@ interface PromotionDisplayProps {
   originalAmount: number;
   finalAmount: number;
   totalDiscount: number;
+  totalPointsAwarded?: number;
   loading?: boolean;
   className?: string;
 }
@@ -18,6 +19,7 @@ export default function PromotionDisplay({
   originalAmount,
   finalAmount,
   totalDiscount,
+  totalPointsAwarded = 0,
   loading = false,
   className = ""
 }: PromotionDisplayProps) {
@@ -37,66 +39,79 @@ export default function PromotionDisplay({
   }
 
   return (
-    <div className={`bg-green-50 border border-green-200 rounded-lg p-4 ${className}`}>
-      <div className="flex items-start justify-between">
-        <div className="flex-1">
-          <h3 className="text-sm font-semibold text-green-800 mb-2">
-            🎉 Promotions Available
-          </h3>
+    <div className={`bg-green-50 border border-green-200 rounded-lg p-2 ${className}`}>
+      {/* Header with You Save section */}
+      <div className="flex items-start justify-between mb-2">
+        <h3 className="text-sm font-semibold text-green-800">
+          🎉 Promotions Available
+        </h3>
 
-          {/* Applied Promotions */}
-          {appliedPromotions.length > 0 && (
-            <div className="mb-3">
-              <h4 className="text-xs font-medium text-green-700 mb-1">Applied:</h4>
-              {appliedPromotions.map((promo, index) => (
-                <div key={index} className="flex items-center justify-between bg-green-100 rounded px-2 py-1 mb-1">
-                  <span className="text-xs text-green-800 font-medium">
-                    {promo.promotionName}
-                  </span>
-                  <span className="text-xs text-green-800 font-bold">
-                    -{formatDiscount(promo)}
-                  </span>
+        {/* Savings/Points Summary */}
+        {(totalDiscount > 0 || totalPointsAwarded > 0) && (
+          <div className="text-right">
+            {totalDiscount > 0 && (
+              <>
+                <div className="text-xs text-green-700">You Save</div>
+                <div className="text-lg font-bold text-green-800">
+                  ${totalDiscount.toFixed(2)}
                 </div>
-              ))}
-            </div>
-          )}
-
-          {/* Other Eligible Promotions */}
-          {promotions.length > appliedPromotions.length && (
-            <div>
-              <h4 className="text-xs font-medium text-green-700 mb-1">Also Available:</h4>
-              {promotions
-                .filter(promo => !appliedPromotions.some(applied => applied.promotionId === promo.promotionId))
-                .map((promo, index) => (
-                  <div key={index} className="text-xs text-green-600 mb-1">
-                    • {promo.promotionName} ({formatDiscount(promo)})
-                  </div>
-                ))}
-            </div>
-          )}
-
-          {/* Description for applied promotions */}
-          {appliedPromotions.length > 0 && appliedPromotions[0].description && (
-            <p className="text-xs text-green-600 mt-2 italic">
-              {appliedPromotions[0].description}
-            </p>
-          )}
-        </div>
-
-        {/* Savings Summary */}
-        {totalDiscount > 0 && (
-          <div className="ml-4 text-right">
-            <div className="text-xs text-green-700">You Save</div>
-            <div className="text-lg font-bold text-green-800">
-              ${totalDiscount.toFixed(2)}
-            </div>
+              </>
+            )}
+            {totalPointsAwarded > 0 && (
+              <>
+                <div className="text-xs text-green-700 mt-1">You Earn</div>
+                <div className="text-sm font-bold text-green-800">
+                  {totalPointsAwarded} pts
+                </div>
+              </>
+            )}
           </div>
         )}
       </div>
 
+      {/* Applied Promotions - Full Width */}
+      {appliedPromotions.length > 0 && (
+        <div className="mb-3">
+          <h4 className="text-xs font-medium text-green-700 mb-1">Applied:</h4>
+          <div className="space-y-1">
+            {appliedPromotions.map((promo, index) => (
+              <div key={index} className="grid grid-cols-5 gap-3 bg-green-100 rounded px-2 py-1.5 items-start">
+                <span className="text-xs text-green-800 font-medium leading-tight col-span-3">
+                  {promo.promotionName}
+                </span>
+                <span className="text-xs text-green-800 font-bold leading-tight text-right col-span-2">
+                  -{formatDiscount(promo)}
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Other Eligible Promotions */}
+      {promotions.length > appliedPromotions.length && (
+        <div>
+          <h4 className="text-xs font-medium text-green-700 mb-1">Also Available:</h4>
+          {promotions
+            .filter(promo => !appliedPromotions.some(applied => applied.promotionId === promo.promotionId))
+            .map((promo, index) => (
+              <div key={index} className="text-xs text-green-600 mb-1">
+                • {promo.promotionName} ({formatDiscount(promo)})
+              </div>
+            ))}
+        </div>
+      )}
+
+      {/* Description for applied promotions */}
+      {appliedPromotions.length > 0 && appliedPromotions[0].description && (
+        <p className="text-xs text-green-600 mt-2 italic">
+          {appliedPromotions[0].description}
+        </p>
+      )}
+
       {/* Price Breakdown */}
       {totalDiscount > 0 && (
-        <div className="mt-3 pt-3 border-t border-green-200">
+        <div className="mt-2 pt-2 border-t border-green-200">
           <div className="flex justify-between text-xs text-green-700">
             <span>Original Price:</span>
             <span>${originalAmount.toFixed(2)}</span>
@@ -122,7 +137,10 @@ function formatDiscount(promo: PromotionDiscount): string {
   } else if (promo.discountType === 'FIXED_AMOUNT') {
     return `$${promo.discountValue} off`;
   } else if (promo.discountType === 'POINTS') {
-    return `${promo.discountValue} points`;
+    // Points are auto-redeemed for value, show both points used and dollar value
+    const pointsUsed = promo.discountValue;
+    const dollarValue = promo.discountAmount.toFixed(2);
+    return `${pointsUsed} ${promo.pointsCurrency || 'pts'} redeemed ($${dollarValue} value)`;
   }
 
   // Fallback to discount amount if type is unclear

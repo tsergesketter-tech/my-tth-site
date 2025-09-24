@@ -35,6 +35,11 @@ export default function Header() {
         <NavLink to="/member" className={navClass}>
           Member
         </NavLink>
+        {state.status === "authenticated" && (
+          <NavLink to="/admin" className={navClass}>
+            Admin
+          </NavLink>
+        )}
       </nav>
 
       {/* Right: Utility + Auth */}
