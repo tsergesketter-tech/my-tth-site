@@ -560,33 +560,9 @@ export default function Checkout() {
       {/* Guest & payment form */}
       <section className="md:col-span-2 rounded-2xl bg-white p-5 shadow">
         <div className="mb-4 text-lg font-semibold text-gray-900">
-          Guest details
+          Booking Options
         </div>
         <form onSubmit={handleSubmit} noValidate className="space-y-4">
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="block text-sm text-gray-700">First name</label>
-              <input
-                name="firstName"
-                className="mt-1 w-full rounded-md border px-3 py-2"
-              />
-            </div>
-            <div>
-              <label className="block text-sm text-gray-700">Last name</label>
-              <input
-                name="lastName"
-                className="mt-1 w-full rounded-md border px-3 py-2"
-              />
-            </div>
-          </div>
-
-          <div>
-            <label className="block text-sm text-gray-700">Email</label>
-            <input
-              name="email"
-              className="mt-1 w-full rounded-md border px-3 py-2"
-            />
-          </div>
 
           {/* Redemption UI (elegant placement before Payment) */}
           <div className="pt-2">
@@ -636,49 +612,24 @@ export default function Checkout() {
             </div>
           </div>
 
-          <div className="mt-4 text-lg font-semibold text-gray-900">Payment</div>
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="block text-sm text-gray-700">Card number</label>
-              <input
-                name="cardNumber"
-                className="mt-1 w-full rounded-md border px-3 py-2"
-              />
-            </div>
-            <div>
-              <label className="block text-sm text-gray-700">
-                Expiry (MM/YY)
-              </label>
-              <input
-                name="expiry"
-                className="mt-1 w-full rounded-md border px-3 py-2"
-              />
-            </div>
-          </div>
-
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="block text-sm text-gray-700">CVC</label>
-              <input
-                name="cvc"
-                className="mt-1 w-full rounded-md border px-3 py-2"
-              />
-            </div>
-            <div>
-              <label className="block text-sm text-gray-700">Postal code</label>
-              <input
-                name="postal"
-                className="mt-1 w-full rounded-md border px-3 py-2"
-              />
-            </div>
-          </div>
-
           <button
             type="submit"
-            className="mt-2 rounded-lg bg-indigo-600 px-4 py-2 font-semibold text-white hover:bg-indigo-700"
+            className="mt-6 w-full rounded-lg bg-indigo-600 px-4 py-3 font-semibold text-white hover:bg-indigo-700 text-lg"
           >
-            Confirm and pay {redeemPoints > 0 ? `• ${fmt(adjustedTotal)}` : ""}
+            Complete Demo Booking {redeemPoints > 0 ? `• ${fmt(adjustedTotal)}` : `• ${fmt(priceAfterPromotions)}`}
           </button>
+
+          <div className="mt-4 p-4 bg-blue-50 rounded-lg border border-blue-200">
+            <div className="text-sm text-blue-800">
+              <div className="font-medium flex items-center gap-2">
+                <span>🎯</span>
+                Demo Mode - No Real Payment Required
+              </div>
+              <div className="mt-2 text-xs text-blue-600">
+                This is a demonstration booking. No actual payment will be processed and no real reservation will be made.
+              </div>
+            </div>
+          </div>
 
           <div className="mt-3">
             <Link

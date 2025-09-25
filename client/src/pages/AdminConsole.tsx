@@ -22,9 +22,9 @@ export default function AdminConsole() {
 
   // Mock SSO enrollment form state
   const [ssoForm, setSsoForm] = useState({
-    firstName: 'John',
-    lastName: 'Doe',
-    email: 'john.doe@example.com',
+    firstName: 'Demo',
+    lastName: 'User',
+    email: 'demo@example.test',
     membershipNumber: 'DL54321',
     tier: 'Gold Medallion',
     milesBalance: 50000,
