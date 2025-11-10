@@ -8,7 +8,7 @@ import {
   useNavigate,
   Link,
 } from "react-router-dom";
-import React, { ReactNode } from "react";
+import React, { ReactNode, useEffect } from "react";
 import Header from "./components/Header";
 import Footer from "./components/Footer";
 import DemoBanner from "./components/DemoBanner";
@@ -24,6 +24,7 @@ import StayDetail from "./pages/StayDetail";
 import DestinationType from "./pages/DestinationType";
 import AdminConsole from "./pages/AdminConsole";
 import LoginCard, { useAuth } from "./components/LoginCard";
+import { useMCP } from "./hooks/useMCP";
 
 // --- Protect routes ---
 // --- Protect routes ---
@@ -73,10 +74,33 @@ function LoginPage() {
   );
 }
 
+// MCP Tracking Wrapper
+function MCPTracker() {
+  const location = useLocation();
+  const { trackPageView, isReady } = useMCP({ 
+    autoInit: true, 
+    trackPageViews: false // We'll handle this manually for better control
+  });
+
+  // Track page views on route changes
+  useEffect(() => {
+    if (isReady) {
+      trackPageView({
+        path: location.pathname,
+        search: location.search,
+        route: location.pathname,
+      });
+    }
+  }, [location, isReady, trackPageView]);
+
+  return null;
+}
+
 export default function App() {
   return (
     <BrowserRouter>
       <DemoBanner />
+      <MCPTracker />
       <Header />
       <Routes>
         {/* Public */}

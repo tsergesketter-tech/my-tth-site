@@ -4,6 +4,8 @@ import { useSearchParams, Link } from "react-router-dom";
 import ResultCard from "../components/inventory/ResultCard";
 import PromotionBanner from "../components/PromotionBanner";
 import { usePointsSimulation } from "../hooks/usePointsSimulation"; // ⬅ add
+import { useMCP } from "../hooks/useMCP";
+import { PersonalizationZone } from "../components/personalization/PersonalizationZone";
 
 type Stay = {
   id: string;
@@ -22,6 +24,9 @@ export default function SearchResults() {
   const [loading, setLoading] = useState(true);
   const [stays, setStays] = useState<Stay[]>([]);
   const [error, setError] = useState<string | null>(null);
+  
+  // MCP tracking
+  const { trackEvent, isReady } = useMCP({ autoInit: true });
 
   // Accept either ?city= or ?location=
   const rawCityOrLocation = useMemo(
@@ -65,6 +70,21 @@ export default function SearchResults() {
 
         const results: Stay[] = data.results || data || [];
         setStays(results);
+        
+        // Track search event
+        if (isReady && city) {
+          trackEvent({
+            type: 'searchStays',
+            data: {
+              searchTerm: city,
+              checkIn: checkInISO,
+              checkOut: checkOutISO,
+              guests: Number(guests),
+              nights,
+              resultsCount: results.length,
+            },
+          });
+        }
       } catch (e: any) {
         if (mounted) {
           console.error("Search load failed:", e);
@@ -137,6 +157,18 @@ export default function SearchResults() {
       </div>
 
       <PromotionBanner />
+      
+      {/* Personalization Zone - Hero Banner */}
+      <PersonalizationZone 
+        zoneId="search-hero"
+        className="mb-6"
+      />
+      
+      {/* Personalization Zone - Search Results Top */}
+      <PersonalizationZone 
+        zoneId="search-results-top"
+        className="mb-4"
+      />
 
       {simError && (
         <div className="mb-3 rounded-md bg-yellow-50 p-3 text-yellow-800 text-sm">
@@ -173,6 +205,12 @@ export default function SearchResults() {
           )}
         </div>
       )}
+      
+      {/* Personalization Zone - Search Results Bottom */}
+      <PersonalizationZone 
+        zoneId="search-results-bottom"
+        className="mt-8"
+      />
     </div>
   );
 }

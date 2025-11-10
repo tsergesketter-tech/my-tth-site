@@ -6,6 +6,7 @@ import React, {
   useRef,
   useState,
 } from "react";
+import { mcpService } from "../services/mcpService";
 
 // ---------- Demo user & fake backend ----------
 type Role = "member" | "admin";
@@ -128,6 +129,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         const user = JSON.parse(userRaw) as AuthUser;
         console.log('[Auth] Successfully restored user session:', user.name);
         setState({ status: "authenticated", user, token });
+        
+        // Re-identify user in MCP after session restoration
+        mcpService.identifyUser({
+          id: user.id,
+          email: user.email,
+          firstName: user.name.split(' ')[0],
+          lastName: user.name.split(' ').slice(1).join(' '),
+          membershipNumber: 'DL12345', // This should come from user data
+          attributes: {
+            role: user.role,
+            sessionRestored: true,
+          },
+        });
       } catch (error) {
         console.error('[Auth] Failed to restore session:', error);
         // Clear corrupted data
@@ -187,6 +201,28 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           
           setState({ status: "authenticated", user, token });
           console.log('[Auth] Login successful for:', user.name);
+          
+          // Identify user in MCP for personalization
+          mcpService.identifyUser({
+            id: user.id,
+            email: user.email,
+            firstName: user.name.split(' ')[0],
+            lastName: user.name.split(' ').slice(1).join(' '),
+            membershipNumber: 'DL12345', // This should come from user data
+            attributes: {
+              role: user.role,
+              loginMethod: 'demo',
+            },
+          });
+          
+          // Track login event
+          mcpService.trackEvent({
+            type: 'login',
+            data: {
+              method: 'demo',
+              timestamp: new Date().toISOString(),
+            },
+          });
         } catch (error) {
           console.error('[Auth] Login failed:', error);
           setState((s) => ({ ...s, status: "anonymous" }));
@@ -194,11 +230,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         }
       },
       logout() {
+        // Track logout before clearing session
+        mcpService.trackEvent({
+          type: 'logout',
+          data: {
+            timestamp: new Date().toISOString(),
+          },
+        });
+        
         localStorage.removeItem(STORAGE_TOKEN);
         localStorage.removeItem(STORAGE_USER);
         sessionStorage.removeItem(STORAGE_TOKEN);
         sessionStorage.removeItem(STORAGE_USER);
         setState({ status: "anonymous", user: null, token: null });
+        console.log('[Auth] Logged out');
       },
     };
   }, [state]);
